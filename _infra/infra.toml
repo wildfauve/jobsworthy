@@ -1,2 +1,8 @@
+[library]
+name = "jobsworth"
+
+[cluster]
+url = "https://adb-575697367950122.2.azuredatabricks.net"
+
 [artefacts]
-root = "dbfs:/artifacts/common/python"
+root = "dbfs:/artifacts/common/python/dist"
