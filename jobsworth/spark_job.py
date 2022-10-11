@@ -1,21 +1,34 @@
+from importlib import import_module
+from pathlib import Path
+from pymonad.tools import curry
 from .util import singleton
 
-def job():
+def job(initialiser_module: str = None):
     """
     Job provides a decorator which wraps the execution of a spark job.  You use the decorator at the entry point of the job
 
-    @spark_job.job()
+    @spark_job.job(initialiser_module="tests.shared.initialisers")
     def execute(args=None, location_partitioner: Callable = date_partitioner) -> monad.EitherMonad[value.JobState]:
         pass
 
+    The initialiser_module provided to the decorator is a module in import path format.  All non "__init__.py" modules
+    in this module will be dynamically imported, and those which are decorated with @spark_job.register() will be
+    executed before the job starts.  This is a great place to include any state, functions, etc, which need to be
+    initialised before starting the job.
+
     Job does the following:
-    + It calls the initer to run all the initialisations registered
+    + It calls the initialiser to run all the initialisations registered
     + It then invokes the job function with all args and kwargs.
     + At job completion it simply returns whatever the job function returned.
 
     """
     def inner(fn):
         def invoke(*args, **kwargs):
+            mod = kwargs.get('initialiser_module', None) or initialiser_module
+
+            if mod:
+                initialisation_importer(mod)
+
             initialisation_runner()
             result = fn(*args, **kwargs)
             return result
@@ -48,5 +61,22 @@ def register():
     return inner
 
 
+def initialisation_importer(initialiser_mod: str):
+    path = Path(initialiser_mod.replace(".", "/"))
+    list(map(import_initialiser(initialiser_mod), files_in_init_path(path)))
+
+
 def initialisation_runner():
     Initialiser().invoke_fns()
+
+def files_in_init_path(path):
+    return list(path.glob("**/*.py"))
+
+@curry(2)
+def import_initialiser(module, file) -> None:
+    if "__" in file.name:
+        return None
+    full_module = f"{module}.{file.name.replace('.py', '')}"
+    import_module(full_module)
+    pass
+
