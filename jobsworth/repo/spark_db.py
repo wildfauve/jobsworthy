@@ -2,8 +2,6 @@ from jobsworth import config
 
 
 class Db:
-    table_config_term = "table"
-    db_table_config_term = "fully_qualified"
 
     def __init__(self, session, config: config.JobConfig):
         self.session = session

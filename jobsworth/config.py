@@ -1,7 +1,8 @@
 import re
 
-normalise_pattern = pattern = re.compile(r'(?<!^)(?=[A-Z])')
+from jobsworth.util import env
 
+normalise_pattern = pattern = re.compile(r'(?<!^)(?=[A-Z])')
 
 def normalise(token):
     return normalise_pattern.sub('_', token).lower()
@@ -11,10 +12,12 @@ class JobConfig:
     def __init__(self,
                  domain_name: str,
                  data_product_name: str,
-                 service_name: str):
+                 service_name: str,
+                 env: str = env.Env().env):
         self.domain_name = normalise(domain_name)
         self.data_product_name = normalise(data_product_name)
         self.service_name = normalise(service_name)
+        self.env = env
         self.db = DbConfig()
 
     def configure_db(self, *args, **kwargs):

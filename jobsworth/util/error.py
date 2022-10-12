@@ -29,3 +29,6 @@ class NotAStreamError(JobError):
 
 class HiveConfigError(JobError):
     pass
+
+class SecretError(JobError):
+    pass
