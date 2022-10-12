@@ -8,4 +8,4 @@ def it_normalises_names_to_snake_case():
 
     assert cfg.db_name == "a_camel_case_name"
     assert cfg.data_product_name == "a_pascal_case_name"
-    assert cfg.domain == "my_domain"
+    assert cfg.domain_name == "my_domain"

@@ -5,9 +5,9 @@ from jobsworth.util import session
 
 
 def create_session():
-    return session.di_session("test_spark_session",
-                              spark_delta_session,
-                              spark_session_config)
+    return session.build_spark_session("test_spark_session",
+                                       spark_delta_session,
+                                       spark_session_config)
 
 
 def spark_delta_session(session_name):
