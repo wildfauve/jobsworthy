@@ -51,7 +51,7 @@ class HiveRepo:
                  stream_writer=None,
                  reader=HiveTableReader):
         self.db = db
-        self.writer = stream_writer
+        self.stream_writer = stream_writer
         self.reader = reader
         if not hasattr(self, "table_name"):
             raise error.HiveConfigError('table_name class property not provided')
@@ -78,12 +78,12 @@ class HiveRepo:
         trigger_condition = trigger if trigger else {'once': True}
         if not stream.isStreaming:
             raise error.NotAStreamError("Dataframe is not in a Stream.  Cant write stream")
-
-        self.streamQ = self.writer().write(self, stream
-                                           .writeStream
-                                           .format('delta')
-                                           .option('checkpointLocation', self.db.checkpoint_location(self.table_name))
-                                           .trigger(**trigger_condition))
+        self.streamQ = self.stream_writer().write(self, stream
+                                                  .writeStream
+                                                  .format('delta')
+                                                  .option('checkpointLocation',
+                                                          self.db.checkpoint_location(self.table_name))
+                                                  .trigger(**trigger_condition))
         return self
 
     def await_termination(self):
