@@ -20,7 +20,7 @@ class StreamHiveWriter:
 
     def write(self, repo, stream):
         if not hasattr(stream, 'table'):
-            raise error.HiveConfigError(
+            raise error.RepoConfigError(
                 "StreamHiveWriter can not be used (probably beause in Test), use StreamFileWriter instead")
         return stream.table(repo.db_table_name())
 
@@ -54,7 +54,7 @@ class HiveRepo:
         self.stream_writer = stream_writer
         self.reader = reader
         if not hasattr(self, "table_name"):
-            raise error.HiveConfigError('table_name class property not provided')
+            raise error.RepoConfigError('table_name class property not provided')
 
     def delta_read(self) -> Optional[dataframe.DataFrame]:
         if not self.table_exists():

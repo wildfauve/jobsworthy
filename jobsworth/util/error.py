@@ -27,7 +27,7 @@ class SchemaMatchingError(JobError):
 class NotAStreamError(JobError):
     pass
 
-class HiveConfigError(JobError):
+class RepoConfigError(JobError):
     pass
 
 class SecretError(JobError):

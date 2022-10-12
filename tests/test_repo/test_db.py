@@ -97,12 +97,12 @@ def test_cant_use_hive_stream_writer_in_test(test_db):
 
     df = stream.withColumn('onStream', F.lit("true"))
 
-    with pytest.raises(error.HiveConfigError):
+    with pytest.raises(error.RepoConfigError):
         my_table_2.write_stream(df)
 
 
 def test_table_doesnt_provide_table_name(test_db):
-    with pytest.raises(error.HiveConfigError):
+    with pytest.raises(error.RepoConfigError):
         MyBadlyConfiguredHiveTable(db=test_db)
 
 
