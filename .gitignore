@@ -1,6 +1,7 @@
 # test hive dbs
 spark-warehouse/
 metastore_db/
+tests/db/
 
 # PySpark
 derby.log

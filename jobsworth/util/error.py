@@ -22,3 +22,10 @@ class JobError(Exception):
 
 class SchemaMatchingError(JobError):
     pass
+
+
+class NotAStreamError(JobError):
+    pass
+
+class HiveConfigError(JobError):
+    pass
