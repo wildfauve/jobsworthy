@@ -1,11 +1,11 @@
-from jobsworth.repo import db_config
+from jobsworth import config
 
 
 class Db:
     table_config_term = "table"
     db_table_config_term = "fully_qualified"
 
-    def __init__(self, session, config: db_config.DbConfig):
+    def __init__(self, session, config: config.JobConfig):
         self.session = session
         self.config = config
         self.create_db_if_not_exists()
@@ -30,16 +30,16 @@ class Db:
         return [table.name for table in self.session.catalog.listTables(self.database_name())]
 
     def database_name(self):
-        return self.config.db_name
+        return self.config.db.db_name
 
     def db_table_name(self, table_name):
         return f"{self.database_name()}.{table_name}"
 
     def table_format(self):
-        return self.config.table_format
+        return self.config.db.table_format
 
     def db_file_system_path_root(self):
-        return self.config.db_file_system_root
+        return self.config.db.db_file_system_root
 
     def db_path(self):
         return f"{self.db_file_system_path_root()}/{self.database_name()}.db"
@@ -51,7 +51,7 @@ class Db:
 
         /<domain>/<data_product>/delta/<table>
         """
-        return f"{self.config.checkpoint_root}/{self.config.domain_name}/delta/{self.config.data_product_name}/{table_name}"
+        return f"{self.config.db.checkpoint_root}/{self.config.domain_name}/delta/{self.config.data_product_name}/{table_name}"
 
 
     def checkpoint_location(self, table_name):

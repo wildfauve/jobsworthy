@@ -1,20 +1,15 @@
 import pytest
 from pyspark.sql import functions as F
 
-from jobsworth.repo import db_config, spark_db, hive_repo
+from jobsworth import config
+from jobsworth.repo import spark_db, hive_repo
 from jobsworth.util import error
 
 from tests.shared import spark_test_session, table_setup
 
 
 def test_initialise_db():
-    cfg = db_config.DbConfig(db_name="my_db_name",
-                             domain_name="my_domain",
-                             data_product_name="my_data_product",
-                             db_file_system_path_root="spark-warehouse",
-                             checkpoint_root="tests/db")
-
-    db = spark_db.Db(session=spark_test_session.create_session(), config=cfg)
+    db = spark_db.Db(session=spark_test_session.create_session(), config=job_config())
 
     assert db.db_exists()
 
@@ -89,6 +84,7 @@ def test_read_write_streams(test_db):
 
     assert "onStream" in table_2_df.columns
 
+
 def test_cant_use_hive_stream_writer_in_test(test_db):
     my_table = MyHiveTable(db=test_db)
     my_table.create(my_table_df(test_db))
@@ -104,10 +100,10 @@ def test_cant_use_hive_stream_writer_in_test(test_db):
     with pytest.raises(error.HiveConfigError):
         my_table_2.write_stream(df)
 
+
 def test_table_doesnt_provide_table_name(test_db):
     with pytest.raises(error.HiveConfigError):
         MyBadlyConfiguredHiveTable(db=test_db)
-
 
 
 #
@@ -122,8 +118,10 @@ class MyHiveTable2(hive_repo.HiveRepo):
     table_name = "my_hive_table_2"
     pass
 
+
 class MyBadlyConfiguredHiveTable(hive_repo.HiveRepo):
     pass
+
 
 def my_table_df(db):
     return table_setup.test_df(db.session)
@@ -131,3 +129,11 @@ def my_table_df(db):
 
 def my_table_df_new_rows(db):
     return table_setup.test_df_2(db.session)
+
+
+def job_config():
+    return config.JobConfig(data_product_name="my_data_product_name",
+                            domain_name="my_domain",
+                            service_name="my_service").configure_db(db_name="my_db",
+                                                                    db_file_system_path_root="spark-warehouse",
+                                                                    checkpoint_root="tests/db")

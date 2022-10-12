@@ -2,7 +2,7 @@ from typing import Optional, Dict
 from pyspark.sql import dataframe
 from delta.tables import *
 
-from . import spark_db, db_config
+from . import spark_db
 from jobsworth.util import error
 
 
