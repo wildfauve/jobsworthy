@@ -51,8 +51,4 @@ def cosmos_table_setup(db):
 
     return MyCosmosTable(db=db,
                          secrets_provider=secrets_provider,
-                         account_key_name="my_cosmos_account_key",
-                         endpoint="cosmos_endpoint",
-                         db_name="cosmos_db_name",
-                         container_name="cosmos_container_name",
                          stream_reader=cosmos_fixture.MockCosmosDBStreamReader)

@@ -134,6 +134,6 @@ def my_table_df_new_rows(db):
 def job_config():
     return config.JobConfig(data_product_name="my_data_product_name",
                             domain_name="my_domain",
-                            service_name="my_service").configure_db(db_name="my_db",
-                                                                    db_file_system_path_root="spark-warehouse",
-                                                                    checkpoint_root="tests/db")
+                            service_name="my_service").configure_hive_db(db_name="my_db",
+                                                                         db_file_system_path_root="spark-warehouse",
+                                                                         checkpoint_root="tests/db")
