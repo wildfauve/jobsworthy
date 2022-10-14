@@ -1,3 +1,5 @@
+import pytest
+
 from jobsworth import config
 from jobsworth.util import secrets, databricks, error
 
@@ -50,6 +52,12 @@ def test_secret_not_available():
     assert the_secret.is_left()
     assert isinstance(the_secret.error(), error.SecretError)
     assert the_secret.error().message == "Secret does not exist with scope: my_domain.my_service.test and key: not_a_secret_key"
+
+
+def test_invalid_provider():
+    with pytest.raises(error.SecretError):
+        secrets.Secrets(config=job_config(),
+                        secrets_provider=databricks.DatabricksUtilMockWrapper)
 
 
 #
