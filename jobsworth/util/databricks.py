@@ -20,7 +20,7 @@ class DatabricksUtilsWrapper:
             return self.db_utils
 
         from pyspark.dbutils import DBUtils
-        self.db_utils = DBUtils(self.session)
+        self.db_utils = DBUtils(self.session())
         return self.db_utils
 
 
@@ -39,7 +39,7 @@ class DatabricksUtilMockWrapper:
         if self.db_utils:
             return self.db_utils
 
-        self.db_utils = MockDBUtils(self.session, self.load_secrets)
+        self.db_utils = MockDBUtils(self.session(), self.load_secrets)
         return self.db_utils
 
 class MockDBUtils:

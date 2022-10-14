@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "jobsworth"
-version = "0.1.17"
+version = "0.1.18"
 description = ""
 authors = ["Col Perks <wild.fauve@gmail.com>"]
 
@@ -13,6 +13,7 @@ PyMonad = "^2.4.0"
 pino = "^0.6.0"
 pyspark = "^3.3.0"
 delta-spark = "^2.1.0"
+dependency-injector = "^4.40.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"

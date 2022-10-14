@@ -75,6 +75,16 @@ def test_invalid_provider():
 
     assert result.is_left()
 
+def test_session_initialised(test_container):
+    from pyspark.sql import session
+    from tests.shared import dependencies as deps
+
+    the_secret = deps.secrets_provider().get_secret("CosmosDBAuthorizationKey")
+
+    assert the_secret.value == "a-secret"
+    assert isinstance(deps.secrets_provider().secret_provider.utils().session, session.SparkSession)
+
+
 
 #
 # Helpers
