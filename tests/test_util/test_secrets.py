@@ -56,8 +56,7 @@ def test_secret_not_available():
 
 def test_invalid_provider():
     with pytest.raises(error.SecretError):
-        secrets.Secrets(config=job_config(),
-                        secrets_provider=databricks.DatabricksUtilMockWrapper)
+        secrets.Secrets(config=job_config(),secrets_provider=databricks.DatabricksUtilMockWrapper).get_secret("blah")
 
 
 #
