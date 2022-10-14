@@ -43,9 +43,15 @@ class StreamReader:
     format = "cosmos.oltp.changeFeed"
 
     def read_stream(self, repo):
+        logger.info(msg="Jobsworth: CosmosStreamReader",
+                    ctx={
+                        "sp": str(repo.db.session),
+                        "format": self.__class__.format,
+                        "opts": repo.spark_config_options()
+                    })
         return (
             repo.db.session
-            .readStream.format(format)
+            .readStream.format(self.__class__.format)
             .options(**repo.spark_config_options())
             .load()
         )
