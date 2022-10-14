@@ -1,6 +1,10 @@
+from typing import Tuple
+import types
 from importlib import import_module
 from pathlib import Path
 from pymonad.tools import curry
+from inspect import getmembers, ismodule
+
 from .util import singleton, logger
 
 def job(initialiser_module: str = None):
@@ -26,8 +30,8 @@ def job(initialiser_module: str = None):
         def invoke(*args, **kwargs):
             mod = kwargs.get('initialiser_module', None) or initialiser_module
 
-            if mod:
-                initialisation_importer(mod)
+            # if mod:
+            #     initialisation_importer(mod)
 
             initialisation_runner()
             result = fn(*args, **kwargs)
@@ -61,23 +65,23 @@ def register():
     return inner
 
 
-def initialisation_importer(initialiser_mod: str):
-    path = Path(*initialiser_mod.split("."))
-    list(map(import_initialiser(initialiser_mod), files_in_init_path(path)))
-
-
 def initialisation_runner():
     Initialiser().invoke_fns()
 
-def files_in_init_path(path):
-    return list(path.glob("**/*.py"))
 
-@curry(2)
-def import_initialiser(module, file) -> None:
-    if "__" in file.name:
-        return None
-    full_module = f"{module}.{file.name.replace('.py', '')}"
-    logger.info(msg=f"JobsWorth:import_initialiser, importing initialiser: {full_module}")
-    import_module(full_module)
-    pass
+# def initialisation_importer(initialiser_mod: types.ModuleType):
+#     list(map(import_initialiser, getmembers(initialiser_mod, ismodule)))
+#
+# def files_in_init_path(path):
+#     return list(path.glob("**/*.py"))
+#
+# def import_initialiser(module: Tuple[str, types.ModuleType]) -> None:
+#     pass
+#     # breakpoint()
+#     # if "__" in file.name:
+#     #     return None
+#     # full_module = f"{module}.{file.name.replace('.py', '')}"
+#     # logger.info(msg=f"JobsWorth:import_initialiser, importing initialiser: {full_module}")
+#     # import_module(full_module)
+#     # pass
 
