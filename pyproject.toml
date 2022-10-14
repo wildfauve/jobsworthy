@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "jobsworth"
-version = "0.1.12"
+version = "0.1.13"
 description = ""
 authors = ["Col Perks <wild.fauve@gmail.com>"]
 

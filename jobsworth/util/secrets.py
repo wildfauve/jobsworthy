@@ -41,11 +41,4 @@ class Secrets:
         return f"{self.config.domain_name}.{self.config.service_name}.{self.config.env}"
 
     def provider(self):
-        checked_provider = self.try_provider()
-        if checked_provider.is_right():
-            return checked_provider.value
-        raise error.SecretError(checked_provider.error().message)
-
-    @monad.monadic_try(error_cls=error.SecretError)
-    def try_provider(self):
         return self.secret_provider.utils().secrets
