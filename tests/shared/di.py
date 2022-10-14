@@ -29,6 +29,8 @@ class TestContainer(containers.DeclarativeContainer):
         config_for_testing.SECRETS_SCOPE
     )
 
+    database = providers.Factory(spark_db.Db, session, job_config)
+
 @pytest.fixture
 def test_container():
     cosmos_fixture.MockCosmosDBStreamReader.db_table_name = (
