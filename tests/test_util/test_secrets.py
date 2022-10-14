@@ -3,10 +3,12 @@ import pytest
 from jobsworth import config
 from jobsworth.util import secrets, databricks, error
 
+from tests.shared import *
 
 def test_reads_secret_from_scope():
+
     provider = secrets.Secrets(config=job_config(),
-                               secrets_provider=databricks.DatabricksUtilMockWrapper()).clear_cache()
+                               secrets_provider=dbutils_wrapper()).clear_cache()
 
     the_secret = provider.get_secret("my_secret")
 
@@ -17,7 +19,7 @@ def test_reads_secret_from_scope():
 
 def test_caches_secret():
     provider = secrets.Secrets(config=job_config(),
-                               secrets_provider=databricks.DatabricksUtilMockWrapper()).clear_cache()
+                               secrets_provider=dbutils_wrapper()).clear_cache()
 
     provider.get_secret("my_secret")
 
@@ -30,8 +32,7 @@ def test_with_loaded_secrets():
                     }
 
     provider = secrets.Secrets(config=job_config(),
-                               secrets_provider=databricks.DatabricksUtilMockWrapper(
-                                   load_secrets=test_secrets)).clear_cache()
+                               secrets_provider=dbutils_wrapper(test_secrets)).clear_cache()
 
     the_secret = provider.get_secret("my_secret")
 
@@ -44,8 +45,7 @@ def test_secret_not_available():
                     }
 
     provider = secrets.Secrets(config=job_config(),
-                               secrets_provider=databricks.DatabricksUtilMockWrapper(
-                                   load_secrets=test_secrets)).clear_cache()
+                               secrets_provider=dbutils_wrapper(test_secrets)).clear_cache()
 
     the_secret = provider.get_secret("not_a_secret_key")
 
@@ -55,7 +55,9 @@ def test_secret_not_available():
 
 
 def test_invalid_provider():
-    result = secrets.Secrets(config=job_config(),secrets_provider=databricks.DatabricksUtilMockWrapper).get_secret("blah")
+    result = secrets.Secrets(config=job_config(),
+                             secrets_provider=databricks.DatabricksUtilMockWrapper).get_secret(
+        "blah")
 
     assert result.is_left()
 
@@ -69,3 +71,4 @@ def job_config():
                             service_name="my_service").configure_hive_db(db_name="my_db",
                                                                          db_file_system_path_root="spark-warehouse",
                                                                          checkpoint_root="tests/db")
+

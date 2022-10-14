@@ -12,12 +12,16 @@ class DatabricksUtilsWrapper:
 
     def __init__(self, session) -> None:
         self.session = session
+        self.db_utils = None
         pass
 
     def utils(self):
-        from pyspark.dbutils import DBUtils
+        if self.db_utils:
+            return self.db_utils
 
-        return DBUtils(self.session)
+        from pyspark.dbutils import DBUtils
+        self.db_utils = DBUtils(self.session)
+        return self.db_utils
 
 
 class DatabricksUtilMockWrapper:
@@ -26,11 +30,22 @@ class DatabricksUtilMockWrapper:
     + dbutils.secrets
     """
 
-    def __init__(self, load_secrets: Dict = None):
-        self.secrets = SecretMock(load_secrets=load_secrets)
+    def __init__(self, session, load_secrets: Dict = None):
+        self.session = session
+        self.load_secrets = load_secrets
+        self.db_utils = None
 
     def utils(self):
-        return self
+        if self.db_utils:
+            return self.db_utils
+
+        self.db_utils = MockDBUtils(self.session, self.load_secrets)
+        return self.db_utils
+
+class MockDBUtils:
+    def __init__(self, session, secrets_to_load: Dict):
+        self.session = session
+        self.secrets = SecretMock(load_secrets=secrets_to_load)
 
 
 class SecretMock:

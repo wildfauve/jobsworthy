@@ -1,7 +1,7 @@
 from importlib import import_module
 from pathlib import Path
 from pymonad.tools import curry
-from .util import singleton
+from .util import singleton, logger
 
 def job(initialiser_module: str = None):
     """
@@ -62,7 +62,7 @@ def register():
 
 
 def initialisation_importer(initialiser_mod: str):
-    path = Path(initialiser_mod.replace(".", "/"))
+    path = Path(*initialiser_mod.split("."))
     list(map(import_initialiser(initialiser_mod), files_in_init_path(path)))
 
 
@@ -77,6 +77,7 @@ def import_initialiser(module, file) -> None:
     if "__" in file.name:
         return None
     full_module = f"{module}.{file.name.replace('.py', '')}"
+    logger.info(msg=f"JobsWorth:import_initialiser, importing initialiser: {full_module}")
     import_module(full_module)
     pass
 

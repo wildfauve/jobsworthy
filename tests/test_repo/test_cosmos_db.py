@@ -4,7 +4,7 @@ from pyspark.sql import functions as F
 from jobsworth.repo import spark_db, cosmos_repo
 from jobsworth.util import error, secrets, databricks
 
-from tests.shared import spark_test_session, table_setup, cosmos_fixture
+from tests.shared import spark_test_session, table_setup, cosmos_fixture, databricks_utils_helper
 
 
 def test_config_options(test_db):
@@ -45,7 +45,7 @@ def mock_cosmos_table(db):
 
 def cosmos_table_setup(db):
     secrets_provider = secrets.Secrets(config=db.config,
-                                       secrets_provider=databricks.DatabricksUtilMockWrapper()).clear_cache()
+                                       secrets_provider=databricks_utils_helper.dbutils_wrapper()).clear_cache()
 
     cosmos_fixture.MockCosmosDBStreamReader.db_table_name = "my_db.mock_cosmos_db"
 

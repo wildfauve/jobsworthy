@@ -3,6 +3,9 @@ from delta import *
 
 from jobsworth.util import session
 
+class MockPySparkSession:
+    pass
+
 
 def create_session():
     return session.build_spark_session("test_spark_session",
