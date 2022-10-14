@@ -12,8 +12,11 @@ class Secrets:
                      databricks.DatabricksUtilMockWrapper, databricks.DatabricksUtilsWrapper]):
         self.config = config
         self.secret_provider = secrets_provider
-        if self.provider().is_left():
-            raise error.SecretError(f"Provider misconfigured; check {self.secret_provider.__name__}")
+
+        check_provider = self.provider()
+
+        if check_provider.is_left():
+            raise error.SecretError(check_provider.error().message)
 
     def get_secret(self, secret_name) -> monad.EitherMonad[Optional[str]]:
         return self.read_through(secret_name, self.on_miss_fn)
