@@ -5,9 +5,10 @@ from jobsworth.util import secrets, databricks, error
 
 from tests.shared import *
 
-def test_reads_secret_from_scope():
 
-    provider = secrets.Secrets(config=job_config(),
+def test_reads_secret_from_scope(test_container):
+    provider = secrets.Secrets(session=test_container.session,
+                               config=job_config(),
                                secrets_provider=dbutils_wrapper()).clear_cache()
 
     the_secret = provider.get_secret("my_secret")
@@ -17,8 +18,9 @@ def test_reads_secret_from_scope():
     assert the_secret.value == "from: my_domain.my_service.test/my_secret generates a-secret"
 
 
-def test_caches_secret():
-    provider = secrets.Secrets(config=job_config(),
+def test_caches_secret(test_container):
+    provider = secrets.Secrets(session=test_container.session,
+                               config=job_config(),
                                secrets_provider=dbutils_wrapper()).clear_cache()
 
     provider.get_secret("my_secret")
@@ -26,25 +28,28 @@ def test_caches_secret():
     assert provider.secrets_cache == {'my_secret': 'from: my_domain.my_service.test/my_secret generates a-secret'}
 
 
-def test_with_loaded_secrets():
+def test_with_loaded_secrets(test_container):
     test_secrets = {"my_domain.my_service.test":
                         {'my_secret': 'a-secret'}
                     }
 
-    provider = secrets.Secrets(config=job_config(),
-                               secrets_provider=dbutils_wrapper(test_secrets)).clear_cache()
+    provider = secrets.Secrets(
+        session=test_container.session,
+        config=job_config(),
+        secrets_provider=dbutils_wrapper(test_secrets)).clear_cache()
 
     the_secret = provider.get_secret("my_secret")
 
     assert the_secret.value == "a-secret"
 
 
-def test_secret_not_available():
+def test_secret_not_available(test_container):
     test_secrets = {"my_domain.my_service.test":
                         {'my_secret': 'a-secret'}
                     }
 
-    provider = secrets.Secrets(config=job_config(),
+    provider = secrets.Secrets(session=test_container.session,
+                               config=job_config(),
                                secrets_provider=dbutils_wrapper(test_secrets)).clear_cache()
 
     the_secret = provider.get_secret("not_a_secret_key")
@@ -54,12 +59,13 @@ def test_secret_not_available():
     assert the_secret.error().message == "Secret does not exist with scope: my_domain.my_service.test and key: not_a_secret_key"
 
 
-def test_override_scope():
+def test_override_scope(test_container):
     test_secrets = {"overridden_scope":
                         {'my_secret': 'a-secret'}
                     }
 
-    provider = secrets.Secrets(config=job_config(),
+    provider = secrets.Secrets(session=test_container.session,
+                               config=job_config(),
                                secrets_provider=dbutils_wrapper(test_secrets),
                                scope_override="overridden_scope").clear_cache()
 
@@ -68,12 +74,14 @@ def test_override_scope():
     assert the_secret.value == "a-secret"
 
 
-def test_invalid_provider():
-    result = secrets.Secrets(config=job_config(),
+def test_invalid_provider(test_container):
+    result = secrets.Secrets(session=test_container.session,
+                             config=job_config(),
                              secrets_provider=databricks.DatabricksUtilMockWrapper).get_secret(
         "blah")
 
     assert result.is_left()
+
 
 def test_session_initialised(test_container):
     from pyspark.sql import session
@@ -85,7 +93,6 @@ def test_session_initialised(test_container):
     assert isinstance(deps.secrets_provider().secret_provider.utils().session, session.SparkSession)
 
 
-
 #
 # Helpers
 #
@@ -95,4 +102,3 @@ def job_config():
                             service_name="my_service").configure_hive_db(db_name="my_db",
                                                                          db_file_system_path_root="spark-warehouse",
                                                                          checkpoint_root="tests/db")
-

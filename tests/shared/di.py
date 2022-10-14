@@ -1,7 +1,8 @@
 import pytest
 from dependency_injector import containers, providers
 from jobsworth.repo import cosmos_repo, hive_repo, spark_db
-from jobsworth.util import databricks, secrets, session, env
+from jobsworth.util import databricks, secrets
+from jobsworth.util import session as spark_session
 
 from tests.shared import config_for_testing, cosmos_fixture, spark_test_session
 
@@ -9,7 +10,7 @@ from tests.shared import config_for_testing, cosmos_fixture, spark_test_session
 class TestContainer(containers.DeclarativeContainer):
 
     session = providers.Callable(
-        session.build_spark_session,
+        spark_session.build_spark_session,
         "test_spark_session",
         spark_test_session.spark_delta_session,
         spark_test_session.spark_session_config,
@@ -19,9 +20,9 @@ class TestContainer(containers.DeclarativeContainer):
 
     secrets_provider = providers.Factory(
         secrets.Secrets,
+        session,
         job_config,
         databricks.DatabricksUtilMockWrapper(
-            session,
             load_secrets={
                 f"{config_for_testing.SECRETS_SCOPE}": {"CosmosDBAuthorizationKey": "a-secret"}
             }

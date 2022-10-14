@@ -10,18 +10,22 @@ class DatabricksUtilsWrapper:
     way that supports local testing.  In a test, using DatabricksUtilMockWrapper.
     """
 
-    def __init__(self, session) -> None:
+    def __init__(self, session=None) -> None:
         self.session = session
         self.db_utils = None
         pass
 
-    def utils(self):
+    def utils(self, spark_session=None):
         if self.db_utils:
             return self.db_utils
 
         from pyspark.dbutils import DBUtils
-        self.db_utils = DBUtils(self.session())
+        self.db_utils = DBUtils(self.build_spark_session(spark_session))
         return self.db_utils
+
+    def build_spark_session(self, provided_session=None):
+        return provided_session if provided_session else self.session()
+
 
 
 class DatabricksUtilMockWrapper:
@@ -30,17 +34,21 @@ class DatabricksUtilMockWrapper:
     + dbutils.secrets
     """
 
-    def __init__(self, session, load_secrets: Dict = None):
+    def __init__(self, session=None, load_secrets: Dict = None):
         self.session = session
         self.load_secrets = load_secrets
         self.db_utils = None
 
-    def utils(self):
+    def utils(self, spark_session=None):
         if self.db_utils:
             return self.db_utils
 
-        self.db_utils = MockDBUtils(self.session(), self.load_secrets)
+        self.db_utils = MockDBUtils(spark_session if spark_session else self.session(), self.load_secrets)
         return self.db_utils
+
+    def build_spark_session(self, provided_session=None):
+        return provided_session if provided_session else self.session
+
 
 class MockDBUtils:
     def __init__(self, session, secrets_to_load: Dict):

@@ -7,10 +7,12 @@ class Secrets:
     secrets_cache = {}
 
     def __init__(self,
+                 session,
                  config: cfg.JobConfig,
                  secrets_provider: Union[
                      databricks.DatabricksUtilMockWrapper, databricks.DatabricksUtilsWrapper],
                  scope_override: str = None):
+        self.session = session
         self.config = config
         self.secret_provider = secrets_provider
         self.scope_override = scope_override
@@ -51,4 +53,7 @@ class Secrets:
         return f"{self.config.domain_name}.{self.config.service_name}.{self.config.env}"
 
     def provider(self):
-        return self.secret_provider.utils().secrets
+        return self.utils().secrets
+
+    def utils(self):
+        return self.secret_provider.utils(spark_session=self.session)
