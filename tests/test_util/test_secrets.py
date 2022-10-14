@@ -54,6 +54,20 @@ def test_secret_not_available():
     assert the_secret.error().message == "Secret does not exist with scope: my_domain.my_service.test and key: not_a_secret_key"
 
 
+def test_override_scope():
+    test_secrets = {"overridden_scope":
+                        {'my_secret': 'a-secret'}
+                    }
+
+    provider = secrets.Secrets(config=job_config(),
+                               secrets_provider=dbutils_wrapper(test_secrets),
+                               scope_override="overridden_scope").clear_cache()
+
+    the_secret = provider.get_secret("my_secret")
+
+    assert the_secret.value == "a-secret"
+
+
 def test_invalid_provider():
     result = secrets.Secrets(config=job_config(),
                              secrets_provider=databricks.DatabricksUtilMockWrapper).get_secret(

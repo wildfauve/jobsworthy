@@ -9,9 +9,11 @@ class Secrets:
     def __init__(self,
                  config: cfg.JobConfig,
                  secrets_provider: Union[
-                     databricks.DatabricksUtilMockWrapper, databricks.DatabricksUtilsWrapper]):
+                     databricks.DatabricksUtilMockWrapper, databricks.DatabricksUtilsWrapper],
+                 scope_override: str = None):
         self.config = config
         self.secret_provider = secrets_provider
+        self.scope_override = scope_override
 
     def get_secret(self, secret_name) -> monad.EitherMonad[Optional[str]]:
         return self.read_through(secret_name, self.on_miss_fn)
@@ -37,7 +39,11 @@ class Secrets:
         By convention secret scope is defined for each service in a domain, as well as including the environment.
 
         <domain>.<service>.<env>
+
+        However, the default scope can be overridden with the scope_override constructor
         """
+        if self.scope_override:
+            return self.scope_override
         return f"{self.config.domain_name}.{self.config.service_name}.{self.config.env}"
 
     def provider(self):

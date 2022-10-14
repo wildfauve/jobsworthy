@@ -1,5 +1,5 @@
 from jobsworth.repo import spark_db
-from jobsworth.util import secrets
+from jobsworth.util import secrets, logger
 
 
 class CosmosDb:
@@ -21,13 +21,22 @@ class CosmosDb:
     def spark_config_options(self):
         #TODO: assumes the secret provider returns a Right
         return {"spark.cosmos.accountEndpoint": self.db_config().endpoint,
-                "spark.cosmos.accountKey": self.secrets_provider.get_secret(self.db_config().account_key_name).value,
+                "spark.cosmos.accountKey": self.get_secret(),
                 "spark.cosmos.database": self.db_config().db_name,
                 "spark.cosmos.container": self.db_config().container_name,
                 "spark.cosmos.read.inferSchema.enabled": "true",
                 "spark.cosmos.write.strategy": "ItemOverwrite",
                 "spark.cosmos.read.partitioning.strategy": "Default",
                 "spark.cosmos.changeFeed.mode": "Incremental"}
+
+    def get_secret(self):
+        account_key = self.secrets_provider.get_secret(self.db_config().account_key_name)
+        if account_key.is_left():
+            logger.info(f"Jobsworth: Failed to get account key for: {self.db_config().account_key_name}")
+            return None
+        return account_key.value
+
+
 
 
 class StreamReader:
