@@ -1,6 +1,6 @@
 from typing import Union, Callable, Optional
 from jobsworth import config as cfg
-from . import databricks, monad, error
+from . import databricks, monad, error, logger
 
 
 class Secrets:
@@ -16,7 +16,11 @@ class Secrets:
         self.scope_override = scope_override
 
     def get_secret(self, secret_name) -> monad.EitherMonad[Optional[str]]:
-        return self.read_through(secret_name, self.on_miss_fn)
+        result = self.read_through(secret_name, self.on_miss_fn)
+        if result.is_left():
+            logger.info(msg=f"Jobsworth: Failure to retrieve secret with scope: {self.secret_scope()}, key: {secret_name}",
+                        ctx=result.error().error())
+        return result
 
     def clear_cache(self):
         self.__class__.secrets_cache = {}
