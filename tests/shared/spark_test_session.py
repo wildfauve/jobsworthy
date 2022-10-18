@@ -4,7 +4,12 @@ from delta import *
 from jobsworth.util import session
 
 class MockPySparkSession:
-    pass
+
+    def createDataFrame(self):
+        pass
+
+    def sql(_sql_str):
+        pass
 
 
 def create_session():
