@@ -44,8 +44,10 @@ def mock_cosmos_table(db):
 
 
 def cosmos_table_setup(db):
-    secrets_provider = secrets.Secrets(config=db.config,
-                                       secrets_provider=databricks_utils_helper.dbutils_wrapper()).clear_cache()
+    secrets_provider = secrets.Secrets(
+        session=db.session,
+        config=db.config,
+        secrets_provider=databricks_utils_helper.dbutils_wrapper()).clear_cache()
 
     cosmos_fixture.MockCosmosDBStreamReader.db_table_name = "my_db.mock_cosmos_db"
 

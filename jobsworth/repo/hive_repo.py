@@ -64,8 +64,12 @@ class HiveRepo:
     def read(self) -> Optional[dataframe.DataFrame]:
         return self.reader().read(self)
 
-    def create_df(self, data, schema):
-        return self.db.session.createDataFrame(data=data, schema=schema)
+    def create_df(self, data, schema=None):
+        return self.db.session.createDataFrame(data=data,
+                                               schema=self.schema() if self.schema() else schema)
+
+    def schema(self):
+        return None
 
     def read_stream(self):
         return (self.db.session
