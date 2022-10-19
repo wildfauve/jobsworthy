@@ -18,7 +18,7 @@ OutputsColumn = S.Column(vocab_term="run.sfo-lin:hasOutputs",
                          struct_fn=schema.outputs_collection,
                          cell_builder=schema.outputs_builder)
 
-MetricsColumn = S.Column(vocab_term="'run.sfo-lin:hasMetrics'",
+MetricsColumn = S.Column(vocab_term="run.sfo-lin:hasMetrics",
                          struct_fn=schema.metrics_struct,
                          cell_builder=schema.metrics_builder)
 
