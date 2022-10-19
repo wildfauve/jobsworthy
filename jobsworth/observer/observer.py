@@ -321,7 +321,10 @@ class ObserverHiveEmitter(Emitter):
     def emit(self, table, runs: List[Run]):
         unemitted_runs = set(runs) ^ self.emitted_map
 
-        logger.info('observer:emit', ctx={'countOfRunsToEmit': len(unemitted_runs)})
+        logger.info('observer:emit', ctx={
+            'table': self.repo.db_table_name(),
+            'countOfRunsToEmit': len(unemitted_runs)
+        })
 
         result = self.repo.upsert(self.create_df(table, unemitted_runs), self.partition_cols())
         self.emitted_map.update(unemitted_runs)
