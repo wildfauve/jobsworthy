@@ -1,6 +1,7 @@
 FAIL = 'fail'
 OK = 'ok'
 
+
 class JobError(Exception):
     """
     Base Error Class for Job errors
@@ -27,8 +28,14 @@ class SchemaMatchingError(JobError):
 class NotAStreamError(JobError):
     pass
 
+
 class RepoConfigError(JobError):
     pass
+
+
+class RepoWriteError(JobError):
+    pass
+
 
 class SecretError(JobError):
     pass

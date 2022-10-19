@@ -3,7 +3,7 @@ from pyspark.sql import dataframe
 from delta.tables import *
 
 from . import spark_db
-from jobsworth.util import error
+from jobsworth.util import error, monad
 
 
 class StreamFileWriter:
@@ -95,12 +95,19 @@ class HiveRepo:
             return None
         self.streamQ.awaitTermination()
 
+    def append(self, df, *partition_cols):
+        return self.create(df, *partition_cols)
+
     def create(self, df, *partition_cols):
-        (df.write
-         .format(self.db.table_format())
-         .partitionBy(partition_cols)
-         .mode("append")
-         .saveAsTable(self.db_table_name()))
+        return (df.write
+                .format(self.db.table_format())
+                .partitionBy(partition_cols)
+                .mode("append")
+                .saveAsTable(self.db_table_name()))
+
+    @monad.monadic_try(error_cls=error.RepoWriteError)
+    def try_upsert(self, df, match_col: str, *partition_cols):
+        return self.upsert(df, match_col, *partition_cols)
 
     def upsert(self, df, match_col: str, *partition_cols):
         if not self.table_exists():

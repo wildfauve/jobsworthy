@@ -321,16 +321,19 @@ class ObserverHiveEmitter(Emitter):
     def emit(self, table, runs: List[Run]):
         unemitted_runs = set(runs) ^ self.emitted_map
 
-        logger.info('observer:emit', ctx={
+        logger.info('jobsworth:observer:emit', ctx={
             'table': self.repo.db_table_name(),
             'countOfRunsToEmit': len(unemitted_runs)
         })
 
-        result = self.repo.upsert(self.create_df(table, unemitted_runs), self.partition_cols())
+        result = self.repo.try_upsert(self.create_df(table, unemitted_runs), self.partition_col(), self.partition_col())
+
+        if result.is_left():
+            logger.info('jobsworth:observer:emit UPSERT ERROR', ctx=result.error().error())
         self.emitted_map.update(unemitted_runs)
         return result
 
-    def partition_cols(self):
+    def partition_col(self):
         return 'hasRunTime'
 
     def read(self):
@@ -381,6 +384,7 @@ class Observer(Observable):
 
     def emit(self, runs: List[Run] = []):
         if not self.emitter:
+            logger.info('jobsworth:observer:emit: WARNING: No Observer Emitter Configured')
             return self
         if runs:
             self.emitter.emit(self.table, runs)
