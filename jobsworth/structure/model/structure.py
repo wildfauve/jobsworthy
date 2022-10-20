@@ -44,17 +44,19 @@ class Column:
 
     def __init__(self,
                  vocab_term: str,
+                 vocab: Dict,
                  struct_fn: Callable,
                  validator: Callable = always_valid_validator,
                  cell_builder: Callable = default_cell_builder):
         self.vocab_term = vocab_term
+        self.vocab = vocab
         self.struct_fn = struct_fn
         self.validator = validator
         self.cell_builder = cell_builder
         self.build_dataframe_struct_schema()
 
     def build_dataframe_struct_schema(self):
-        self.schema = self.struct_fn(self.vocab_term)
+        self.schema = self.struct_fn(self.vocab_term, self.vocab)
 
     def __eq__(self, other):
         return self.schema.name == other.schema.name
@@ -66,14 +68,29 @@ class Column:
 
 class Table:
 
-    def __init__(self, columns: List[Column]):
-        self.columns = columns
+    def __init__(self, columns: List[Column] = None, vocab: Dict = None):
+        self.columns = columns if columns else []
+        self.vocab = vocab if vocab else {}
+
+    def column_factory(self,
+                       vocab_term: str,
+                       struct_fn: Callable,
+                       cell_builder: Callable = None,
+                       validator: Callable = None):
+        column = Column(vocab_term=vocab_term,
+                        vocab=self.vocab,
+                        struct_fn=struct_fn,
+                        cell_builder=cell_builder,
+                        validator=validator)
+        self.columns.append(column)
+        return column
 
     def hive_schema(self):
         return StructType(list(map(lambda column: column.schema, self.columns)))
 
     def exception_table(self):
-        return self.__class__(columns=list(map(lambda column: column.generate_exception_column(), self.columns)))
+        return self.__class__(vocab=self.vocab,
+                              columns=list(map(lambda column: column.generate_exception_column(), self.columns)))
 
     def row_factory(self):
         return Row(self)
@@ -146,9 +163,12 @@ class Row:
 
     def cell_factory(self, column_vocab) -> Cell:
         term, _meta = V.term_and_meta(column_vocab)
-        column = fn.find(self.schema_name_predicate(term), self.table.columns)
+        return self.cell_from_schema_name(term)
+
+    def cell_from_schema_name(self, name: str):
+        column = fn.find(self.schema_name_predicate(name), self.table.columns)
         if not column:
-            raise error.SchemaMatchingError(f"Can not find column with term {term}")
+            raise error.SchemaMatchingError(f"Can not find column with term {name}")
         cell = Cell(column=column)
         self.cells.append(cell)
         return cell
@@ -205,6 +225,7 @@ def literal_string_builder(cell: Cell) -> str:
 
 def literal_time_builder(cell: Cell) -> str:
     return cell.props['timeLiteral']
+
 
 def literal_date_builder(cell: Cell) -> str:
     return cell.props['dateLiteral']

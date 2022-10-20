@@ -53,6 +53,7 @@ def it_adds_a_run_input():
     assert job_run.inputs[0].identity() == URIRef('https://example.nz/service/datasets/dataset/myDB.myTable')
 
 
+
 def test_run_takes_multiple_inputs():
     job_run = create_run()
 
@@ -126,6 +127,15 @@ def it_builds_table_from_run(job_cfg_fixture):
     assert table_name == 'myOutputTable1'
 
     assert not metrics
+
+def test_all_cells_valid(job_cfg_fixture):
+    obs = create_obs_with_hive_emitter(job_cfg_fixture)
+    job_run = create_full_run(None, obs)
+
+    rows = obs.emitter.runs_to_rows(obs.table, [job_run])
+
+    assert obs.emitter.all_rows_ok(rows)
+
 
 def it_sets_trace_id():
     job_run = create_full_run()

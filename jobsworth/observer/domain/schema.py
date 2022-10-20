@@ -5,10 +5,10 @@ from jobsworth.structure.util import schema_util as su
 from . import vocab as V
 
 
-def run_time(vocab):
+def run_time(term, vocab):
     return su.build_string_field(
+        term,
         vocab,
-        V.vocab,
         nullable=False)
 
 
@@ -21,8 +21,8 @@ def ds_input_struct():
         ])
 
 
-def inputs_collection(vocab):
-    return su.build_array_field('run.sfo-lin:hasInputs', V.vocab, ds_input_struct(), nullable=True)
+def inputs_collection(term, vocab):
+    return su.build_array_field(term, vocab, ds_input_struct(), nullable=True)
 
 
 def ds_output_struct():
@@ -34,14 +34,14 @@ def ds_output_struct():
         ])
 
 
-def outputs_collection(vocab):
-    return su.build_array_field('run.sfo-lin:hasOutputs', V.vocab, ds_output_struct(), nullable=True)
+def outputs_collection(term, vocab):
+    return su.build_array_field(term, vocab, ds_output_struct(), nullable=True)
 
 
-def run_struct(vocab):
+def run_struct(term, vocab):
     return su.build_struct_field(
+        term,
         vocab,
-        V.vocab,
         StructType([
             su.at_id,
             su.at_type,
@@ -54,10 +54,10 @@ def run_struct(vocab):
         nullable=False)
 
 
-def metrics_struct(vocab):
+def metrics_struct(term, vocab):
     return su.build_array_field(
+        term,
         vocab,
-        V.vocab,
         StringType(),
         nullable=True)
 

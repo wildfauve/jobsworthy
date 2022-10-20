@@ -196,13 +196,13 @@ class Run(Job):
         return self
 
     def inputs_as_props(self, row):
-        cell = row.cell_from_column(column.DataSetInputsColumn).values(
+        cell = row.cell_from_schema_name("hasInputs").values(
             identity=None,
             props={"listOfInput": [inp.to_props() for inp in self.inputs]})
         return cell
 
     def outputs_as_props(self, row):
-        cell = row.cell_from_column(column.OutputsColumn).values(
+        cell = row.cell_from_schema_name("hasOutputs").values(
             identity=None,
             props={"listOfOutputs": [output.to_props() for output in self.outputs]})
         return cell
@@ -239,7 +239,7 @@ class Run(Job):
         return acc
 
     def collect_metrics(self, row):
-        cell = row.cell_from_column(column.MetricsColumn).values(
+        cell = row.cell_from_schema_name("hasMetrics").values(
             identity=None,
             props={"listOfMetrics": [obj.to_json() for name, obj in self.metrics.items()]})
         return cell
@@ -248,11 +248,11 @@ class Run(Job):
         return [tuple(cell.props for cell in row) for row in rows]
 
     def as_row(self, row):
-        row.cell_from_column(column.RunTimeColumn).values(
+        row.cell_from_schema_name('hasRunTime').values(
             identity=None,
             props={'timeLiteral': self.start_time.to_iso8601_string()}
         )
-        row.cell_from_column(column.RunColumn).values(
+        row.cell_from_schema_name('run').values(
             identity=None,
             props={
                 "id": self.coerce_uri(self.identity()),
@@ -344,6 +344,10 @@ class ObserverHiveEmitter(Emitter):
 
     def build_rows(self, table, runs):
         return [row.build_ordered_row_values() for row in self.runs_to_rows(table, runs)]
+
+
+    def all_rows_ok(self, rows):
+        return all(map(structure.all_cells_ok, rows))
 
     def create_df(self, table, runs: List[Run]):
         return self.repo.create_df(self.build_rows(table, runs), table.hive_schema())
