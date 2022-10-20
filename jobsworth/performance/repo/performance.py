@@ -3,7 +3,7 @@ from jobsworth.repo import hive_repo
 
 
 class PerformanceMetric(hive_repo.HiveRepo):
-    table_name = 'cbor_performance_metric'
+    table_name = None
 
     def emit_metrics(self, perf_data):
         return self.create(self.create_df(data=perf_data))

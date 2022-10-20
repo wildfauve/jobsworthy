@@ -12,13 +12,17 @@ def run_time(term, vocab):
         nullable=False)
 
 
+def run_date_utc_struct(term, vocab):
+    return su.build_string_field(term, vocab, nullable=False)
+
+
 def ds_input_struct():
     return StructType([
-            su.at_id,
-            su.at_type,
-            su.build_string_field('run.sfo-lin:hasInputs.sfo-lin:hasLocation', V.vocab, nullable=False),
-            su.build_string_field('run.sfo-lin:hasInputs.sfo-lin:hasName', V.vocab, nullable=True),
-        ])
+        su.at_id,
+        su.at_type,
+        su.build_string_field('run.sfo-lin:hasInputs.sfo-lin:hasLocation', V.vocab, nullable=False),
+        su.build_string_field('run.sfo-lin:hasInputs.sfo-lin:hasName', V.vocab, nullable=True),
+    ])
 
 
 def inputs_collection(term, vocab):
@@ -27,11 +31,11 @@ def inputs_collection(term, vocab):
 
 def ds_output_struct():
     return StructType([
-            su.at_id,
-            su.at_type,
-            su.build_string_field('run.sfo-lin:hasOutputs.sfo-lin:hasLocation', V.vocab, nullable=False),
-            su.build_string_field('run.sfo-lin:hasOutputs.sfo-lin:hasName', V.vocab, nullable=True),
-        ])
+        su.at_id,
+        su.at_type,
+        su.build_string_field('run.sfo-lin:hasOutputs.sfo-lin:hasLocation', V.vocab, nullable=False),
+        su.build_string_field('run.sfo-lin:hasOutputs.sfo-lin:hasName', V.vocab, nullable=True),
+    ])
 
 
 def outputs_collection(term, vocab):

@@ -8,6 +8,9 @@ from jobsworth.repo import hive_repo
 class Observer(hive_repo.HiveRepo):
     table_name = "observer"
 
+    def identity_merge_condition(self, name_of_baseline, update_name):
+        return f"{name_of_baseline}.run.id = {update_name}.run.id"
+
     def filter_by_inputs_run_state(self, run_state, input_locations: List[str]) -> List[T.Row]:
         df = self.read()
 

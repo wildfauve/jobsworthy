@@ -67,5 +67,9 @@ def write_log_to_db(table):
     pass
 
 
-def performance_table_factory(db):
-    return repo.PerformanceMetric(db=db)
+def performance_table_factory(performance_repo, db):
+    return performance_repo(db=db)
+
+
+def base_repo():
+    return repo.PerformanceMetric

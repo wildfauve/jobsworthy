@@ -211,12 +211,12 @@ def generate_root_parent():
 def table_using_factory():
     table = structure.Table(vocab=vocab())
     table.column_factory(vocab_term="columns.column1",
-                         struct_fn=id_type_lable_struct,
+                         struct_fn=id_type_label_struct,
                          validator=success_validator,
                          cell_builder=id_type_label_builder)
 
     table.column_factory(vocab_term="columns.column2",
-                         struct_fn=id_type_lable_struct,
+                         struct_fn=id_type_label_struct,
                          validator=success_validator,
                          cell_builder=id_type_label_builder)
 
@@ -226,7 +226,7 @@ def table_using_factory():
 def table_with_errors():
     table = structure.Table(vocab=vocab())
     table.column_factory(vocab_term="columns.column1",
-                         struct_fn=id_type_lable_struct,
+                         struct_fn=id_type_label_struct,
                          validator=failure_validator,
                          cell_builder=id_type_label_builder)
 
@@ -253,7 +253,7 @@ def vocab():
 def column1():
     return structure.Column(vocab_term="columns.column1",
                             vocab=vocab(),
-                            struct_fn=id_type_lable_struct,
+                            struct_fn=id_type_label_struct,
                             validator=success_validator,
                             cell_builder=id_type_label_builder)
 
@@ -261,12 +261,12 @@ def column1():
 def column2():
     return structure.Column(vocab_term="columns.column2",
                             vocab=vocab(),
-                            struct_fn=id_type_lable_struct,
+                            struct_fn=id_type_label_struct,
                             validator=monad_success_validator,
                             cell_builder=id_type_label_builder)
 
 
-def id_type_lable_struct(term, vocab):
+def id_type_label_struct(term, vocab):
     return schema_util.build_struct_field(term, vocab, schema_util.type_id_label_struct, nullable=False)
 
 

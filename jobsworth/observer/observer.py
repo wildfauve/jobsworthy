@@ -251,6 +251,13 @@ class Run(Job):
             identity=None,
             props={'timeLiteral': self.start_time.to_iso8601_string()}
         )
+
+        _dim_month, dim_day = self.day_from_time(self.start_time)
+        row.cell_from_schema_name('hasRunDateUTC').values(
+            identity=None,
+            props={'dateLiteral': dim_day}
+        )
+
         row.cell_from_schema_name('run').values(
             identity=None,
             props={
@@ -266,6 +273,20 @@ class Run(Job):
         self.outputs_as_props(row)
         self.collect_metrics(row)
         return row
+
+    def day_from_time(self, runtime) -> Tuple[str, str]:
+        time = self.safe_time_convert(runtime) >> self.safe_time_parser
+        if time.is_left():
+            return None, None
+        return time.value.format("YYYY-MM"), time.value.to_date_string()
+
+    @monad.monadic_try()
+    def safe_time_convert(self, time_literal):
+        return time_literal.isoformat()
+
+    @monad.monadic_try()
+    def safe_time_parser(self, time_str: str) -> monad.EitherMonad[pendulum.DateTime]:
+        return pendulum.parse(time_str)
 
     def __str__(self):
         return """
@@ -325,7 +346,9 @@ class ObserverHiveEmitter(Emitter):
             'countOfRunsToEmit': len(unemitted_runs)
         })
 
-        result = self.repo.try_upsert(self.create_df(table, unemitted_runs), self.partition_col(), self.partition_col())
+        result = self.repo.try_upsert(df=self.create_df(table, unemitted_runs),
+                                      partition_puning_col=self.partition_col(),
+                                      partition_cols=(self.partition_col(),))
 
         if result.is_left():
             logger.info('jobsworth:observer:emit UPSERT ERROR', ctx=result.error().error())
@@ -333,7 +356,7 @@ class ObserverHiveEmitter(Emitter):
         return result
 
     def partition_col(self):
-        return 'hasRunTime'
+        return 'hasRunDateUTC'
 
     def read(self):
         return self.repo.read()

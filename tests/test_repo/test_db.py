@@ -42,26 +42,57 @@ def test_read_table(test_db):
 
 def test_delta_upsert_no_change(test_db):
     my_table = MyHiveTable(db=test_db)
-    my_table.create(my_table_df(test_db))
+    my_table.create(my_table_df(test_db), "name")
 
     df = my_table.read()
 
     assert df.count() == 2
 
-    my_table.upsert(df, "id")
+    my_table.upsert(df, "name", "name")
 
     assert my_table.read().count() == 2
 
 
-def test_delta_upsert_with_new_rows(test_db):
+
+def test_partitioned_delta_upsert_with_new_rows(test_db):
+    my_table = MyHiveTable(db=test_db)
+    my_table.create(my_table_df(test_db), "name")
+
+    assert my_table.read().count() == 2
+
+    my_table.upsert(my_table_df_new_rows(test_db), "name", "name")
+
+    assert my_table.read().count() == 4
+
+
+def test_try_upsert(test_db):
+    my_table = MyHiveTable(db=test_db)
+    my_table.create(my_table_df(test_db), "name")
+
+    result = my_table.try_upsert(my_table_df_new_rows(test_db), "name", "name")
+
+    assert result.is_right()
+    assert my_table.read().count() == 4
+
+def test_non_partitioned_delta_upsert_with_new_rows(test_db):
     my_table = MyHiveTable(db=test_db)
     my_table.create(my_table_df(test_db))
 
     assert my_table.read().count() == 2
 
-    my_table.upsert(my_table_df_new_rows(test_db), "id")
+    my_table.upsert(my_table_df_new_rows(test_db))
 
     assert my_table.read().count() == 4
+
+
+def test_delta_upsert_fails_when_no_identity_condition_provided(test_db):
+    my_table = MyHiveTableWithoutIdentityCondition(db=test_db)
+    my_table.create(my_table_df(test_db))
+
+    assert my_table.read().count() == 2
+
+    with pytest.raises(error.RepoConfigError):
+        my_table.upsert(my_table_df_new_rows(test_db), "id")
 
 
 def test_read_write_streams(test_db):
@@ -111,7 +142,13 @@ def test_table_doesnt_provide_table_name(test_db):
 #
 class MyHiveTable(hive_repo.HiveRepo):
     table_name = "my_hive_table"
-    pass
+
+    def identity_merge_condition(self, name_of_baseline, update_name):
+        return f"{name_of_baseline}.id = {update_name}.id"
+
+
+class MyHiveTableWithoutIdentityCondition(hive_repo.HiveRepo):
+    table_name = "my_hive_table"
 
 
 class MyHiveTable2(hive_repo.HiveRepo):

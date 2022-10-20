@@ -53,7 +53,7 @@ class HiveRepo:
         self.db = db
         self.stream_writer = stream_writer
         self.reader = reader
-        if not hasattr(self, "table_name"):
+        if not hasattr(self, "table_name") or not self.__class__.table_name:
             raise error.RepoConfigError('table_name class property not provided')
 
     def delta_read(self) -> Optional[dataframe.DataFrame]:
@@ -98,7 +98,7 @@ class HiveRepo:
     def append(self, df, *partition_cols):
         return self.create(df, *partition_cols)
 
-    def create(self, df, *partition_cols):
+    def create(self, df, partition_cols: tuple = tuple()):
         return (df.write
                 .format(self.db.table_format())
                 .partitionBy(partition_cols)
@@ -106,20 +106,35 @@ class HiveRepo:
                 .saveAsTable(self.db_table_name()))
 
     @monad.monadic_try(error_cls=error.RepoWriteError)
-    def try_upsert(self, df, match_col: str, *partition_cols):
-        return self.upsert(df, match_col, *partition_cols)
+    def try_upsert(self, df, partition_puning_col: str = None, partition_cols: tuple = tuple()):
+        return self.upsert(df, partition_puning_col, partition_cols)
 
-    def upsert(self, df, match_col: str, *partition_cols):
+    def upsert(self, df, partition_puning_col: str = None, partition_cols: tuple = tuple()):
         if not self.table_exists():
-            return self.create(df, *partition_cols)
+            return self.create(df, partition_cols)
 
         (self.delta_table().alias(self.table_name)
          .merge(
             df.alias('updates'),
-            self.build_upsert_match_fn('updates', match_col)
+            self.build_merge_condition(self.table_name, 'updates', partition_puning_col)
         )
          .whenNotMatchedInsertAll()
          .execute())
+
+    def build_merge_condition(self, name_of_baseline, update_name, partition_puning_col):
+        if not hasattr(self, 'identity_merge_condition'):
+            raise error.RepoConfigError(self.error_identity_merge_condition_not_implemented())
+
+        pruning_cond = self.build_puning_condition(name_of_baseline, update_name, partition_puning_col)
+
+        identity_cond = self.identity_merge_condition(name_of_baseline, update_name)
+
+        return f"{pruning_cond}{identity_cond}"
+
+    def build_puning_condition(self, name_of_baseline, update_name, partition_puning_col):
+        if partition_puning_col:
+            return f"{name_of_baseline}.{partition_puning_col} = {update_name}.{partition_puning_col} AND "
+        return ""
 
     def build_upsert_match_fn(self, update_name: str, match_col: str) -> str:
         return f"{update_name}.{match_col} = {self.table_name}.{match_col}"
@@ -138,3 +153,9 @@ class HiveRepo:
 
     def table_location(self):
         return self.db.table_location(self.table_name)
+
+    def error_identity_merge_condition_not_implemented(self):
+        return """
+        The repository requires an identity_merge_condition function to perform a delta merge.
+        This function takes the name of the baseline and the name of the updates used in the merge.
+        Return a delta table condition that contains an identity column name (or sub column name). """

@@ -1,4 +1,6 @@
 from rdflib import URIRef, Namespace
+import time_machine
+import pendulum
 
 from jobsworth.observer import observer
 
@@ -89,6 +91,7 @@ def it_generates_multiple_runs_from_the_same_observer():
     assert obs.runs == [run1, run2]
 
 
+@time_machine.travel(pendulum.datetime(2022, 10, 21, 9, 0, tz='UTC'))
 def it_builds_table_from_run(job_cfg_fixture):
     obs = create_obs_with_hive_emitter(job_cfg_fixture)
     job_run = create_full_run(None, obs)
@@ -97,9 +100,9 @@ def it_builds_table_from_run(job_cfg_fixture):
 
     assert len(rows) == 1
 
-    assert len(rows[0].cells) == 5
+    assert len(rows[0].cells) == 6
 
-    run_time_cell, run_cell, inps_cell, outputs_cell, metrics_cell = rows[0].cells
+    run_time_cell, run_day, run_cell, inps_cell, outputs_cell, metrics_cell = rows[0].cells
 
     run_id, job_type, job_id, trace, t1, t2, state = run_cell.build()
 
@@ -109,6 +112,8 @@ def it_builds_table_from_run(job_cfg_fixture):
 
     metrics = metrics_cell.build()
 
+    assert "2022-10-21T09:00:00" in run_time_cell.build()
+    assert "2022-10-21" in run_day.build()
     assert 'https://example.nz/service/jobs/job/' in run_id
     assert job_type == 'https://example.nz/ontology/Lineage/SparkJob'
     assert job_id == 'https://example.nz/service/jobs/job/'

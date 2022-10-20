@@ -6,6 +6,8 @@ from jobsworth.performance import perf_log
 from jobsworth.repo import spark_db
 
 
+class MyPerformanceRepo(perf_log.base_repo()):
+    table_name = 'my_performance_table'
 
 def setup_module():
     pass
@@ -13,7 +15,8 @@ def setup_module():
 
 def it_persists_the_observer_to_hive_using_emit(job_cfg_fixture, test_db):
     db = spark_db.Db(session=spark_test_session.create_session(), config=job_cfg_fixture)
-    table = perf_log.performance_table_factory(db=db)
+
+    table = perf_log.performance_table_factory(performance_repo=MyPerformanceRepo, db=db)
 
     perf_log.new_correlation("1", "2022-10-20T00:00:00Z")
 
