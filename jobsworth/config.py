@@ -5,6 +5,8 @@ from jobsworth.util import env
 normalise_pattern = pattern = re.compile(r'(?<!^)(?=[A-Z])')
 
 def normalise(token):
+    if not token:
+        return token
     return normalise_pattern.sub('_', token).lower()
 
 
@@ -36,8 +38,8 @@ class DbConfig:
 
     def configure(self,
                  db_name: str,
+                 db_file_system_path_root: str = None,
                  table_format: str = default_table_format,
-                 db_file_system_path_root: str = "dbfs:/user/hive/warehouse/",
                  checkpoint_root: str = ""):
         self.db_name = normalise(db_name)
         self.table_format = table_format

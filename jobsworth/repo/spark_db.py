@@ -1,4 +1,5 @@
 from jobsworth import config
+from jobsworth.util import error, logger
 
 
 class Db:
@@ -40,8 +41,17 @@ class Db:
         return self.config.db.db_file_system_root
 
     def db_path(self):
-        return f"{self.db_file_system_path_root()}/{self.database_name()}.db"
+        """
+        The db path is required for DeltaTable.forPath operations (the delta_table function from hive_repo)
+        """
+        if not self.db_file_system_path_root():
+            raise error.RepoConfigError(
+                msg="Jobsworth: db path not configured.  Set db_file_system_path_root on the HIVE config")
 
+        if self.db_file_system_path_root()[-1] == "/":
+            logger.info(msg="Jobsworth: WARNING. db_file_system_path_root should not end with a '/'")
+            return f"{self.db_file_system_path_root()[:-1]}/{self.database_name()}.db"
+        return f"{self.db_file_system_path_root()}/{self.database_name()}.db"
 
     def table_location(self, table_name):
         """
@@ -50,7 +60,6 @@ class Db:
         /<domain>/<data_product>/delta/<table>
         """
         return f"{self.config.db.checkpoint_root}/{self.config.domain_name}/delta/{self.config.data_product_name}/{table_name}"
-
 
     def checkpoint_location(self, table_name):
         """
