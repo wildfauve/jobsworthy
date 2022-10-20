@@ -1,6 +1,6 @@
 from pyspark.sql.types import StructType, StructField, StringType, ArrayType
 
-from . import vocab_util as V
+from jobsworth.structure import vocab_util as V
 
 common_vocab = {
     "*":

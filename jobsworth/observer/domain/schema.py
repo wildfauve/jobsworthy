@@ -1,7 +1,7 @@
 from typing import Tuple, List
 from pyspark.sql.types import StructType, StringType
 
-from jobsworth.structure.util import schema_util as su
+from ...structure import schema_util as su
 from . import vocab as V
 
 

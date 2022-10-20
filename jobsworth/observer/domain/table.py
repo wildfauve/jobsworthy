@@ -1,5 +1,4 @@
-from jobsworth.structure.model import structure as S
-from . import column as C
+from ...structure import structure as S
 from . import vocab, schema
 
 struct_fn = schema.inputs_collection,

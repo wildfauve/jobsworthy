@@ -1,16 +1,13 @@
-import decimal
+from typing import Any
 import json
 from functools import reduce
-from pymonad.tools import curry
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Callable, Dict, List, Tuple, Union
 from jobsworth.util import fn, json_util, monad
 
 from jobsworth.util import error
-from jobsworth.structure.util import schema_util as su
+from jobsworth.structure import schema_util as su, vocab_util as V
 from pymonad.tools import curry
 from pyspark.sql.types import StructType
-
-from jobsworth.structure.util import vocab_util as V
 
 
 def default_cell_builder(cell):
@@ -21,23 +18,22 @@ def always_valid_validator(cell):
     return monad.Right(None)
 
 
-@curry(2)
-def default_exception_struct_fn(vocab, vocab_term):
-    return su.build_string_field(vocab_term, vocab, nullable=True)
+def default_exception_struct_fn(term, vocab):
+    return su.build_string_field(term, vocab, nullable=True)
 
 
 class RootParent:
     column_name = "__RootMeta__"
 
-    def __init__(self, meta: str, run):
+    def __init__(self, meta: str, tracer: Any):
         self.meta = meta
-        self.run = run
+        self.tracer = tracer
 
     def meta_props(self):
-        return {'columnName': self.column_name, 'meta': self.meta, 'lineage_id': self.run.trace}
+        return {'columnName': self.column_name, 'meta': self.meta, 'lineage_id': self.tracer.trace}
 
     def identity_props(self):
-        return {self.column_name: {'identity': self.meta, 'lineage_id': self.run.trace}}
+        return {self.column_name: {'identity': self.meta, 'lineage_id': self.tracer.trace}}
 
 
 class Column:
@@ -61,9 +57,13 @@ class Column:
     def __eq__(self, other):
         return self.schema.name == other.schema.name
 
-    def generate_exception_column(self, vocab):
+    def schema_name(self):
+        return self.schema.name
+
+    def generate_exception_column(self):
         return self.__class__(vocab_term=self.vocab_term,
-                              struct_fn=default_exception_struct_fn(vocab))
+                              vocab=self.vocab,
+                              struct_fn=default_exception_struct_fn)
 
 
 class Table:
@@ -113,8 +113,14 @@ class Cell:
     def validation_results(self):
         if self._validations_results:
             return self._validations_results
-        self._validations_results = self.column.validator(self) if self.column.validator else monad.Right(None)
+        self._validations_results = self.validate()
         return self._validations_results
+
+    def validate(self):
+        results = self.column.validator(self) if self.column.validator else monad.Right(None)
+        if not hasattr(results, 'lift') or not isinstance(results.lift(), dict):
+            return monad.Right(None)
+        return results
 
     def has_parent(self, parent):
         self.parent = parent
@@ -161,8 +167,10 @@ class Row:
         self.table = table
         self.cells = []
 
-    def cell_factory(self, column_vocab) -> Cell:
-        term, _meta = V.term_and_meta(column_vocab)
+    def cell_factory(self, column_or_vocab: Union[Column, str]) -> Cell:
+        if not isinstance(column_or_vocab, str):
+            return self.cell_from_column(column_or_vocab)
+        term, _meta = V.term_and_meta(column_or_vocab, self.table.vocab)
         return self.cell_from_schema_name(term)
 
     def cell_from_schema_name(self, name: str):
