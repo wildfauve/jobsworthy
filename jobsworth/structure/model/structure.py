@@ -1,6 +1,7 @@
 import decimal
 import json
 from functools import reduce
+from pymonad.tools import curry
 from typing import Callable, Dict, List, Optional, Tuple, Union
 from jobsworth.util import fn, json_util, monad
 
@@ -20,8 +21,9 @@ def always_valid_validator(cell):
     return monad.Right(None)
 
 
-def default_exception_struct_fn(vocab_term):
-    return su.build_string_field(vocab_term, nullable=True)
+@curry(2)
+def default_exception_struct_fn(vocab, vocab_term):
+    return su.build_string_field(vocab_term, vocab, nullable=True)
 
 
 class RootParent:
@@ -57,9 +59,9 @@ class Column:
     def __eq__(self, other):
         return self.schema.name == other.schema.name
 
-    def generate_exception_column(self):
+    def generate_exception_column(self, vocab):
         return self.__class__(vocab_term=self.vocab_term,
-                              struct_fn=default_exception_struct_fn)
+                              struct_fn=default_exception_struct_fn(vocab))
 
 
 class Table:
