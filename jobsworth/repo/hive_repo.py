@@ -46,6 +46,9 @@ class HiveTableReader:
 
 
 class HiveRepo:
+
+    default_stream_trigger_condition = {'once': True}
+
     def __init__(self,
                  db: spark_db.Db,
                  stream_writer=None,
@@ -78,13 +81,21 @@ class HiveRepo:
                 .option('ignoreChanges', True)
                 .table(self.db_table_name()))
 
-    def write_stream(self, stream, trigger: dict = None):
-        trigger_condition = trigger if trigger else {'once': True}
+    def write_stream(self, stream, partition_cols: tuple = tuple(), trigger: dict = None):
+        """
+        Write a stream.  Provide a stream.
+        + To create partition columns in the table, provide a tuple of column names, the default is no partitioning
+        + The default trigger action is {'once': True}. see
+          https://spark.apache.org/docs/3.1.1/api/python/reference/api/pyspark.sql.streaming.DataStreamWriter.trigger.html
+          for more details.
+        """
+        trigger_condition = trigger if trigger else self.__class__.default_stream_trigger_condition
         if not stream.isStreaming:
             raise error.NotAStreamError("Dataframe is not in a Stream.  Cant write stream")
         self.streamQ = self.stream_writer().write(self, stream
                                                   .writeStream
                                                   .format('delta')
+                                                  .partitionBy(partition_cols)
                                                   .option('checkpointLocation',
                                                           self.db.checkpoint_location(self.table_name))
                                                   .trigger(**trigger_condition))
@@ -95,10 +106,19 @@ class HiveRepo:
             return None
         self.streamQ.awaitTermination()
 
-    def append(self, df, *partition_cols):
-        return self.create(df, *partition_cols)
+    def append(self, df, partition_cols: tuple = tuple()):
+        """
+        Executes a simple append operation on a table using the provided dataframe.
+        + Optionally provide a tuple of columns for partitioning the table.
+        """
+
+        return self.create(df, partition_cols)
 
     def create(self, df, partition_cols: tuple = tuple()):
+        """
+        Executes a simple append operation on a table using the provided dataframe.
+        + Optionally provide a tuple of columns for partitioning the table.
+        """
         return (df.write
                 .format(self.db.table_format())
                 .partitionBy(partition_cols)
@@ -107,25 +127,39 @@ class HiveRepo:
 
     @monad.monadic_try(error_cls=error.RepoWriteError)
     def try_upsert(self, df, partition_puning_col: str = None, partition_cols: tuple = tuple()):
+        """
+        The try_upsert wraps the upsert function with a Try monad.  The result will be an Either.  A successful result
+        usually returns Right(None).
+        """
         return self.upsert(df, partition_puning_col, partition_cols)
 
-    def upsert(self, df, partition_puning_col: str = None, partition_cols: tuple = tuple()):
+    def upsert(self, df, partition_pruning_col: str = None, partition_cols: tuple = tuple()):
+        """
+        Upsert performs either a create or a delta merge.  The create is called when the table doesnt exist.  Otherwise
+        a delta merge is performed.
+        + partition_pruning_col.  When partitioning, the merge will use one of the partition columns to execute a merge using
+          partition pruning.
+        + Optionally provide partition columns as a tuple of column names.
+
+        Note that the merge requires that the repository implement a identity_merge_condition function when using merge
+        operations.  This is a merge condition that identifies the upsert identity.
+        """
         if not self.table_exists():
             return self.create(df, partition_cols)
 
         (self.delta_table().alias(self.table_name)
          .merge(
             df.alias('updates'),
-            self.build_merge_condition(self.table_name, 'updates', partition_puning_col)
+            self.build_merge_condition(self.table_name, 'updates', partition_pruning_col)
         )
          .whenNotMatchedInsertAll()
          .execute())
 
-    def build_merge_condition(self, name_of_baseline, update_name, partition_puning_col):
+    def build_merge_condition(self, name_of_baseline, update_name, partition_pruning_col):
         if not hasattr(self, 'identity_merge_condition'):
             raise error.RepoConfigError(self.error_identity_merge_condition_not_implemented())
 
-        pruning_cond = self.build_puning_condition(name_of_baseline, update_name, partition_puning_col)
+        pruning_cond = self.build_puning_condition(name_of_baseline, update_name, partition_pruning_col)
 
         identity_cond = self.identity_merge_condition(name_of_baseline, update_name)
 

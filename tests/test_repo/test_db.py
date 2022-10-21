@@ -95,7 +95,7 @@ def test_delta_upsert_fails_when_no_identity_condition_provided(test_db):
         my_table.upsert(my_table_df_new_rows(test_db), "id")
 
 
-def test_read_write_streams(test_db):
+def test_read_write_streams_with_partitions(test_db):
     my_table = MyHiveTable(db=test_db)
     my_table.create(my_table_df(test_db))
 
@@ -107,13 +107,14 @@ def test_read_write_streams(test_db):
 
     df = stream.withColumn('onStream', F.lit("true"))
 
-    my_table_2.write_stream(df)
+    my_table_2.write_stream(df, ("name",))
 
     my_table_2.await_termination()
 
     table_2_df = my_table_2.read()
 
     assert "onStream" in table_2_df.columns
+    assert table_2_df.rdd.getNumPartitions() == 2
 
 
 def test_cant_use_hive_stream_writer_in_test(test_db):
