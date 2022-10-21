@@ -1,10 +1,38 @@
 from typing import Optional, Dict
 from pyspark.sql import dataframe
+from pyspark.sql import functions as F
 from delta.tables import *
+from functools import reduce
 
 from . import spark_db
 from jobsworth.util import error, monad
 
+class TableProperty:
+    @classmethod
+    def table_property_expression(cls, set_of_props: List):
+        return ",".join([prop.format_as_expression() for prop in set_of_props])
+
+    def __init__(self, key: str, value: str):
+        self.key = self.prepend_urn(key)
+        self.value = value
+
+
+    def prepend_urn(self, key):
+        if key[0:3] == 'urn':
+            return key
+        return f"urn:{key}"
+
+    def __key(self):
+        return (self.key, self.value)
+
+    def __hash__(self):
+        return hash((self.key, self.value))
+
+    def __eq__(self, other):
+        return self.__key == other.__key
+
+    def format_as_expression(self):
+        return f"'{self.key}'='{self.value}'"
 
 class StreamFileWriter:
 
@@ -46,7 +74,6 @@ class HiveTableReader:
 
 
 class HiveRepo:
-
     default_stream_trigger_condition = {'once': True}
 
     def __init__(self,
@@ -119,11 +146,13 @@ class HiveRepo:
         Executes a simple append operation on a table using the provided dataframe.
         + Optionally provide a tuple of columns for partitioning the table.
         """
-        return (df.write
-                .format(self.db.table_format())
-                .partitionBy(partition_cols)
-                .mode("append")
-                .saveAsTable(self.db_table_name()))
+        result = (df.write
+                  .format(self.db.table_format())
+                  .partitionBy(partition_cols)
+                  .mode("append")
+                  .saveAsTable(self.db_table_name()))
+        self.merge_table_properties()
+        return result
 
     @monad.monadic_try(error_cls=error.RepoWriteError)
     def try_upsert(self, df, partition_puning_col: str = None, partition_cols: tuple = tuple()):
@@ -187,6 +216,37 @@ class HiveRepo:
 
     def table_location(self):
         return self.db.table_location(self.table_name)
+
+    def merge_table_properties(self):
+        set_on_table = set(self.urn_table_properties())
+
+        self.add_to_table_properties(set(self.__class__.table_properties) - set_on_table)
+        self.remove_from_table_properties(set_on_table -  set(self.__class__.table_properties))
+        return self
+
+
+    def urn_table_properties(self) -> List[TableProperty]:
+        return [TableProperty(prop.key, prop.value) for prop in (self.get_table_properties()
+                .filter(F.col('key').startswith('urn'))
+                .select(F.col('key'), F.col('value'))
+                .collect())]
+
+    def get_table_properties(self):
+        return self.db.session.sql(f"SHOW TBLPROPERTIES {self.db_table_name()}")
+
+    def add_to_table_properties(self, to_add: List[TableProperty]):
+        if not to_add:
+            return self
+        self.db.session.sql(f"alter table {self.db_table_name()} set tblproperties ({TableProperty.table_property_expression(to_add)})")
+        return self
+
+
+    def remove_from_table_properties(self, to_remove: List[TableProperty]):
+        if not to_remove:
+            return self
+        self.db.session.sql(f"alter table {self.db_table_name()} unset tblproperties ({TableProperty.table_property_expression(to_remove)})")
+        return self
+
 
     def error_identity_merge_condition_not_implemented(self):
         return """

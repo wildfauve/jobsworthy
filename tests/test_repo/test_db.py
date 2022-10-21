@@ -27,6 +27,17 @@ def test_create_hive_table_in_db(test_db):
 
     assert my_table.table_exists()
 
+def test_add_table_properties_on_create(test_db):
+    my_table = MyHiveTable(db=test_db)
+    my_table.create(my_table_df(test_db))
+
+
+    props = my_table.urn_table_properties()
+
+    assert len(props) == 1
+    assert props[0].key == "urn:my_namespace:spark:table:schema:version"
+    assert props[0].value == "0.0.1"
+
 
 def test_read_table(test_db):
     my_table = MyHiveTable(db=test_db)
@@ -143,6 +154,10 @@ def test_table_doesnt_provide_table_name(test_db):
 #
 class MyHiveTable(hive_repo.HiveRepo):
     table_name = "my_hive_table"
+    table_properties = [
+        hive_repo.TableProperty("my_namespace:spark:table:schema:version", "0.0.1")
+    ]
+
 
     def identity_merge_condition(self, name_of_baseline, update_name):
         return f"{name_of_baseline}.id = {update_name}.id"
