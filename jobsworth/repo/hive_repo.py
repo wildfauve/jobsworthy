@@ -143,6 +143,11 @@ class HiveRepo:
             return None
         self.streamQ.awaitTermination()
 
+    @monad.monadic_try(error_cls=error.RepoWriteError)
+    def try_append(self, df, partition_cols: tuple = tuple()):
+        return self.append(df, partition_cols)
+
+
     def append(self, df, partition_cols: tuple = tuple()):
         """
         Executes a simple append operation on a table using the provided dataframe.

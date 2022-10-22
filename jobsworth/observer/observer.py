@@ -336,7 +336,6 @@ class ObserverHiveEmitter(Emitter):
             raise error.ObserverConfigError('Session provided is not a Spark Session.  Reconfigure Hive Emitter')
         self.repo = repo.REPO(repo.DB(session=session, config=job_config))
 
-
     @monad.monadic_try(error_cls=error.ObserverError)
     def emit(self, table, runs: List[Run]):
         unemitted_runs = set(runs) ^ self.emitted_map
@@ -346,8 +345,11 @@ class ObserverHiveEmitter(Emitter):
             'countOfRunsToEmit': len(unemitted_runs)
         })
 
-        result = self.repo.try_upsert(df=self.create_df(table, unemitted_runs),
-                                      partition_puning_col=self.partition_col(),
+        # result = self.repo.try_upsert(df=self.create_df(table, unemitted_runs),
+        #                               partition_puning_col=self.partition_col(),
+        #                               partition_cols=(self.partition_col(),))
+
+        result = self.repo.try_append(df=self.create_df(table, unemitted_runs),
                                       partition_cols=(self.partition_col(),))
 
         if result.is_left():
@@ -366,7 +368,6 @@ class ObserverHiveEmitter(Emitter):
 
     def build_rows(self, table, runs):
         return [row.build_ordered_row_values() for row in self.runs_to_rows(table, runs)]
-
 
     def all_rows_ok(self, rows):
         return all(map(structure.all_cells_ok, rows))

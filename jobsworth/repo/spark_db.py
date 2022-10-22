@@ -46,7 +46,7 @@ class Db:
         """
         if not self.db_file_system_path_root():
             raise error.RepoConfigError(
-                msg="Jobsworth: db path not configured.  Set db_file_system_path_root on the HIVE config")
+                message="Jobsworth: db path not configured.  Set db_file_system_path_root on the HIVE config")
 
         if self.db_file_system_path_root()[-1] == "/":
             logger.info(msg="Jobsworth: WARNING. db_file_system_path_root should not end with a '/'")
