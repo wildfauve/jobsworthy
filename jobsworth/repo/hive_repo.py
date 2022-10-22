@@ -12,6 +12,11 @@ class TableProperty:
     def table_property_expression(cls, set_of_props: List):
         return ",".join([prop.format_as_expression() for prop in set_of_props])
 
+
+    @classmethod
+    def table_property_expression_keys(cls, set_of_props: List):
+        return ",".join([prop.key for prop in set_of_props])
+
     def __init__(self, key: str, value: str):
         self.key = self.prepend_urn(key)
         self.value = value
@@ -33,6 +38,7 @@ class TableProperty:
 
     def format_as_expression(self):
         return f"'{self.key}'='{self.value}'"
+
 
 class StreamFileWriter:
 
@@ -247,7 +253,7 @@ class HiveRepo:
     def remove_from_table_properties(self, to_remove: List[TableProperty]):
         if not to_remove:
             return self
-        self.db.session.sql(f"alter table {self.db_table_name()} unset tblproperties ({TableProperty.table_property_expression(to_remove)})")
+        self.db.session.sql(f"alter table {self.db_table_name()} unset tblproperties ({TableProperty.table_property_expression_keys(to_remove)})")
         return self
 
 
