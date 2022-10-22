@@ -34,7 +34,7 @@ class TableProperty:
         return hash((self.key, self.value))
 
     def __eq__(self, other):
-        return self.__key == other.__key
+        return self.__key() == other.__key()
 
     def format_as_expression(self):
         return f"'{self.key}'='{self.value}'"
