@@ -38,6 +38,15 @@ def test_add_table_properties_on_create(test_db):
     assert props[0].key == "urn:my_namespace:spark:table:schema:version"
     assert props[0].value == "0.0.1"
 
+def test_doesnt_add_table_props_when_none_defined(test_db):
+    my_table = MyHiveTable2(db=test_db)
+    my_table.create(my_table_df(test_db))
+
+    props = my_table.urn_table_properties()
+
+    assert not props
+
+
 
 def test_read_table(test_db):
     my_table = MyHiveTable(db=test_db)
@@ -106,6 +115,7 @@ def test_delta_upsert_fails_when_no_identity_condition_provided(test_db):
         my_table.upsert(my_table_df_new_rows(test_db), "id")
 
 
+
 def test_read_write_streams_with_partitions(test_db):
     my_table = MyHiveTable(db=test_db)
     my_table.create(my_table_df(test_db))
@@ -169,7 +179,6 @@ class MyHiveTableWithoutIdentityCondition(hive_repo.HiveRepo):
 
 class MyHiveTable2(hive_repo.HiveRepo):
     table_name = "my_hive_table_2"
-    pass
 
 
 class MyBadlyConfiguredHiveTable(hive_repo.HiveRepo):

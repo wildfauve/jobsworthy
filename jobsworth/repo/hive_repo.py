@@ -86,6 +86,7 @@ class HiveRepo:
         if not hasattr(self, "table_name") or not self.__class__.table_name:
             raise error.RepoConfigError('table_name class property not provided')
 
+
     def delta_read(self) -> Optional[dataframe.DataFrame]:
         if not self.table_exists():
             return None
@@ -218,6 +219,8 @@ class HiveRepo:
         return self.db.table_location(self.table_name)
 
     def merge_table_properties(self):
+        if not hasattr(self, 'table_properties'):
+            return self
         set_on_table = set(self.urn_table_properties())
 
         self.add_to_table_properties(set(self.__class__.table_properties) - set_on_table)
