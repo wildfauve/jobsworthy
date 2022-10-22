@@ -15,7 +15,7 @@ class TableProperty:
 
     @classmethod
     def table_property_expression_keys(cls, set_of_props: List):
-        return ",".join([prop.key for prop in set_of_props])
+        return ",".join([prop.format_key_as_expression for prop in set_of_props])
 
     def __init__(self, key: str, value: str):
         self.key = self.prepend_urn(key)
@@ -38,6 +38,9 @@ class TableProperty:
 
     def format_as_expression(self):
         return f"'{self.key}'='{self.value}'"
+
+    def format_key_as_expression(self):
+        return f"'{self.key}'"
 
 
 class StreamFileWriter:
@@ -246,14 +249,14 @@ class HiveRepo:
     def add_to_table_properties(self, to_add: List[TableProperty]):
         if not to_add:
             return self
-        self.db.session.sql(f"alter table {self.db_table_name()} set tblproperties ({TableProperty.table_property_expression(to_add)})")
+        self.db.session.sql(f"alter table {self.db_table_name()} set tblproperties({TableProperty.table_property_expression(to_add)})")
         return self
 
 
     def remove_from_table_properties(self, to_remove: List[TableProperty]):
         if not to_remove:
             return self
-        self.db.session.sql(f"alter table {self.db_table_name()} unset tblproperties ({TableProperty.table_property_expression_keys(to_remove)})")
+        self.db.session.sql(f"alter table {self.db_table_name()} unset tblproperties({TableProperty.table_property_expression_keys(to_remove)})")
         return self
 
 
