@@ -47,6 +47,14 @@ class PerfLogCapture(singleton.Singleton):
                     v[self.__class__.metrics_col]))
         return acc
 
+    def reset(self):
+        self.__class__.current_correlation = "default"
+        self.__class__.performance = {
+            self.__class__.current_correlation: {
+                self.__class__.time_col: None,
+                self.__class__.count_col: None,
+                self.__class__.metrics_col: {}}}
+
 
 def perf_log_callback(name, delta):
     PerfLogCapture().add_delta(name, delta)
@@ -66,6 +74,8 @@ def write_log_to_db(table):
     table.emit_metrics(PerfLogCapture().to_data())
     pass
 
+def reset_logs():
+    PerfLogCapture().reset()
 
 def performance_table_factory(performance_repo, db):
     return performance_repo(db=db)

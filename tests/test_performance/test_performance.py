@@ -42,6 +42,22 @@ def it_persists_the_observer_to_hive_using_emit(job_cfg_fixture, test_db):
     assert not row.counter
     assert row.delta_t
 
+def it_resets_the_performance_metrics_to_default():
+    perf_log.new_correlation("1", "2022-10-20T00:00:00Z")
+
+    perf_log.new_correlation("1", "2022-10-20T00:00:00Z")
+    logs_performance()
+
+    assert [k for k in perf_log.PerfLogCapture().performance.keys()] == ['default', '1']
+
+    perf_log.reset_logs()
+
+    assert perf_log.PerfLogCapture().performance == {'default': {'time': None, 'counter': None, 'metrics': {}}}
+
+
+
+
+
 
 #
 # Helpers
