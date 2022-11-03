@@ -15,10 +15,16 @@ class JobConfig:
                  domain_name: str,
                  data_product_name: str,
                  service_name: str,
+                 client_id_key: str = None,
+                 client_secret_key: str = None,
+                 tenant_key: str = None,
                  env: str = env.Env().env):
         self.domain_name = normalise(domain_name)
         self.data_product_name = normalise(data_product_name)
         self.service_name = normalise(service_name)
+        self.client_id_key = client_id_key
+        self.client_secret_key = client_secret_key
+        self.tenant_key = tenant_key
         self.env = env
         self.db = DbConfig()
         self.cosmos_db = CosmosDbConfig()

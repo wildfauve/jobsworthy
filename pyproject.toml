@@ -16,6 +16,8 @@ delta-spark = "^2.1.0"
 dependency-injector = "^4.40.0"
 validators = "^0.20.0"
 rdflib = "^6.2.0"
+azure-storage-file-datalake = "^12.9.1"
+azure-identity = "^1.11.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"

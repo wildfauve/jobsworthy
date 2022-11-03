@@ -13,10 +13,13 @@ def test_config_options(test_db):
     opts = my_cosmos_table.spark_config_options()
 
     assert opts == {'spark.cosmos.accountEndpoint': 'cosmos_endpoint',
-                    'spark.cosmos.accountKey': 'from: my_domain.my_service.test/my_cosmos_account_key generates a-secret',
-                    'spark.cosmos.database': 'cosmos_db_name', 'spark.cosmos.container': 'cosmos_container_name',
-                    'spark.cosmos.read.inferSchema.enabled': 'true', 'spark.cosmos.write.strategy': 'ItemOverwrite',
-                    'spark.cosmos.read.partitioning.strategy': 'Default', 'spark.cosmos.changeFeed.mode': 'Incremental'}
+                    'spark.cosmos.accountKey': 'from: my_domain.my_data_product_name/my_cosmos_account_key generates a-secret',
+                    'spark.cosmos.database': 'cosmos_db_name',
+                    'spark.cosmos.container': 'cosmos_container_name',
+                    'spark.cosmos.read.inferSchema.enabled': 'true',
+                    'spark.cosmos.write.strategy': 'ItemOverwrite',
+                    'spark.cosmos.read.partitioning.strategy': 'Default',
+                    'spark.cosmos.changeFeed.mode': 'Incremental'}
 
 
 def test_reads_from_stream(test_db):

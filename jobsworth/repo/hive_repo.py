@@ -197,6 +197,7 @@ class HiveRepo:
             self.build_merge_condition(self.table_name, 'updates', partition_pruning_col)
         )
          .whenNotMatchedInsertAll()
+         .whenMatchedUpdateAll()
          .execute())
 
     def build_merge_condition(self, name_of_baseline, update_name, partition_pruning_col):

@@ -1,4 +1,5 @@
 from typing import Dict
+from contextlib import contextmanager
 
 from . import fn
 
@@ -7,7 +8,7 @@ class DatabricksUtilsWrapper:
     """
     DBUtils is the databricks utils library available on any databricks cluster.  It is obtained via pyspark.  This
     utility is not available outside the cluster, therefore this module provides a wrapper for obtaining dbutils in a
-    way that supports local testing.  In a test, using DatabricksUtilMockWrapper.
+    way that supports local testing.  In a test, use DatabricksUtilMockWrapper.
     """
 
     def __init__(self, session=None) -> None:
@@ -43,7 +44,7 @@ class DatabricksUtilMockWrapper:
         if self.db_utils:
             return self.db_utils
 
-        self.db_utils = MockDBUtils(spark_session if spark_session else self.session(), self.load_secrets)
+        self.db_utils = MockDBUtils(self.build_spark_session(spark_session), self.load_secrets)
         return self.db_utils
 
     def build_spark_session(self, provided_session=None):
@@ -74,3 +75,14 @@ class SecretMock:
             return secret
         msg = f"Secret does not exist with scope: {scope} and key: {key}"
         raise self.IllegalArgumentException(msg)
+
+
+# class CommonFileSystem:
+#
+#     def ls(self):
+#         pass
+#
+#     @contextmanager
+#     def open(self, location, access):
+#         with open(location, access) as file_generator:
+#             yield file_generator
