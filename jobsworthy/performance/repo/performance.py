@@ -1,5 +1,5 @@
 from pyspark.sql import types as T
-from jobsworth.repo import hive_repo
+from jobsworthy.repo import hive_repo
 
 
 class PerformanceMetric(hive_repo.HiveRepo):

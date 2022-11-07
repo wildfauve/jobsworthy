@@ -1,5 +1,5 @@
-from jobsworth.repo import spark_db
-from jobsworth.util import secrets, logger
+from jobsworthy.repo import spark_db
+from jobsworthy.util import secrets, logger
 
 
 class CosmosDb:

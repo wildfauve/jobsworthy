@@ -1,9 +1,9 @@
-from jobsworth.util import logger, singleton
+from jobsworthy.util import logger, singleton
 
 
 def test_log_level_with_kwargs(mocker):
     Spy().clear()
-    mocker.patch('jobsworth.util.logger.logger', Spy)
+    mocker.patch('jobsworthy.util.logger.logger', Spy)
     logger.info(msg="msg", ctx={'key': "value"})
 
     assert Spy().logs == [({'ctx': {'key': 'value'}, 'status': 'ok'}, 'msg')]
@@ -11,7 +11,7 @@ def test_log_level_with_kwargs(mocker):
 
 def test_log_level_with_args(mocker):
     Spy().clear()
-    mocker.patch('jobsworth.util.logger.logger', Spy)
+    mocker.patch('jobsworthy.util.logger.logger', Spy)
     logger.info("msg", None, 'ok', {'key': "value"})
 
     assert Spy().logs == [({'ctx': {'key': 'value'}, 'status': 'ok'}, 'msg')]
@@ -19,7 +19,7 @@ def test_log_level_with_args(mocker):
 
 def test_perf_decorator(mocker):
     Spy().clear()
-    mocker.patch('jobsworth.util.logger.logger', Spy)
+    mocker.patch('jobsworthy.util.logger.logger', Spy)
 
     with_perf_log_decorator()
 

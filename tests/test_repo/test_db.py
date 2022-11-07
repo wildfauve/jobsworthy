@@ -1,9 +1,9 @@
 import pytest
 from pyspark.sql import functions as F
 
-from jobsworth import config
-from jobsworth.repo import spark_db, hive_repo
-from jobsworth.util import error
+from jobsworthy import config
+from jobsworthy.repo import spark_db, hive_repo
+from jobsworthy.util import error
 
 from tests.shared import spark_test_session, table_setup
 

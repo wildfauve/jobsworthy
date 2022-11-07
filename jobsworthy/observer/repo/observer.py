@@ -2,7 +2,7 @@ from typing import List
 from pyspark.sql import types as T
 from pyspark.sql import functions as F
 
-from jobsworth.repo import hive_repo
+from jobsworthy.repo import hive_repo
 
 
 class Observer(hive_repo.HiveRepo):

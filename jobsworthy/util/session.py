@@ -1,7 +1,7 @@
 from typing import Callable
 from pyspark.sql import SparkSession
 
-from jobsworth.util import fn
+from jobsworthy.util import fn
 
 
 def create_session(session_name):

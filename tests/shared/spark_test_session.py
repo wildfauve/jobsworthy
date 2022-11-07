@@ -1,7 +1,7 @@
 import pyspark
 from delta import *
 
-from jobsworth.util import session
+from jobsworthy.util import session
 
 class MockPySparkSession:
 

@@ -2,10 +2,10 @@ from typing import Any
 import json
 from functools import reduce
 from typing import Callable, Dict, List, Tuple, Union
-from jobsworth.util import fn, json_util, monad
+from jobsworthy.util import fn, json_util, monad
 
-from jobsworth.util import error
-from jobsworth.structure import schema_util as su, vocab_util as V
+from jobsworthy.util import error
+from jobsworthy.structure import schema_util as su, vocab_util as V
 from pymonad.tools import curry
 from pyspark.sql.types import StructType
 

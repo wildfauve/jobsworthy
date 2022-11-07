@@ -1,4 +1,4 @@
-from jobsworth.util import error
+from jobsworthy.util import error
 
 class ObserverError(error.JobError):
     pass

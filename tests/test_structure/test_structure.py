@@ -1,8 +1,8 @@
 import pytest
 import json
 
-from jobsworth.util import monad, error
-from jobsworth.structure import structure, schema_util
+from jobsworthy.util import monad, error
+from jobsworthy.structure import structure, schema_util
 
 
 def test_cell_name_from_vocab():

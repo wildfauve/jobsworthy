@@ -1,5 +1,5 @@
-from jobsworth import config as cfg
-from jobsworth.util import env
+from jobsworthy import config as cfg
+from jobsworthy.util import env
 
 DATABASE_NAME = 'my_db'
 DOMAIN_NAME = "my_domain"

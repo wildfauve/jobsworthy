@@ -1,4 +1,4 @@
-from jobsworth.util import singleton
+from jobsworthy.util import singleton
 
 class InitState(singleton.Singleton):
 

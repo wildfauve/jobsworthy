@@ -1,6 +1,6 @@
 from tests.shared import spark_test_session
 
-from jobsworth.observer import observer
+from jobsworthy.observer import observer
 
 
 class RunOfMySparkJob(observer.Run):

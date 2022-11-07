@@ -1,5 +1,5 @@
-from jobsworth import config
-from jobsworth.util import error, logger
+from jobsworthy import config
+from jobsworthy.util import error, logger
 
 
 class Db:

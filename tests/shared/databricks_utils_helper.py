@@ -1,5 +1,5 @@
 from typing import Dict
-from jobsworth.util import databricks
+from jobsworthy.util import databricks
 from . import spark_test_session
 
 

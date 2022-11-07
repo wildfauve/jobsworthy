@@ -1,7 +1,7 @@
 from typing import List
 import json
 
-from jobsworth.util import singleton
+from jobsworthy.util import singleton
 
 
 class SumCounter:

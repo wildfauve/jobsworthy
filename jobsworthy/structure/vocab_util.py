@@ -1,6 +1,6 @@
 from typing import Dict, Tuple, Optional, List
 
-from jobsworth.util import fn, logger
+from jobsworthy.util import fn, logger
 
 """
 This is a vocab mapping module.  The vocab is laid out in a tree structure aligned, at the root to each of the column-level concepts

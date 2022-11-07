@@ -5,7 +5,7 @@ from delta.tables import *
 from functools import reduce
 
 from . import spark_db
-from jobsworth.util import error, monad
+from jobsworthy.util import error, monad
 
 class TableProperty:
     @classmethod

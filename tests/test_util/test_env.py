@@ -1,4 +1,4 @@
-from jobsworth.util import env
+from jobsworthy.util import env
 
 def test_env_name():
     assert env.Env.env == "test"

@@ -1,4 +1,4 @@
-from jobsworth import spark_job
+from jobsworthy import spark_job
 
 from tests.shared import init_state_spy
 from tests.shared import initialisers

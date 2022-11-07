@@ -1,8 +1,8 @@
 import pytest
 from dependency_injector import containers, providers
-from jobsworth.repo import cosmos_repo, hive_repo, spark_db
-from jobsworth.util import databricks, secrets
-from jobsworth.util import session as spark_session
+from jobsworthy.repo import cosmos_repo, hive_repo, spark_db
+from jobsworthy.util import databricks, secrets
+from jobsworthy.util import session as spark_session
 
 from tests.shared import config_for_testing, cosmos_fixture, spark_test_session
 

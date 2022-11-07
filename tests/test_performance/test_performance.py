@@ -1,9 +1,9 @@
 from tests.shared import spark_test_session
 
 from pyspark.sql import functions as F
-from jobsworth.util import logger
-from jobsworth.performance import perf_log
-from jobsworth.repo import spark_db
+from jobsworthy.util import logger
+from jobsworthy.performance import perf_log
+from jobsworthy.repo import spark_db
 
 
 class MyPerformanceRepo(perf_log.base_repo()):

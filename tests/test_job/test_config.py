@@ -1,4 +1,4 @@
-from jobsworth import config
+from jobsworthy import config
 
 
 def it_create_a_config():

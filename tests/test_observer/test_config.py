@@ -1,8 +1,8 @@
 import pytest
 from rdflib import Namespace
 
-from jobsworth.observer import observer
-from jobsworth.observer.domain import error
+from jobsworthy.observer import observer
+from jobsworthy.observer.domain import error
 
 
 class MyInputHiveTable(observer.HiveTable):

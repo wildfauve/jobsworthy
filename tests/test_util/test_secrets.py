@@ -1,7 +1,7 @@
 import pytest
 
-from jobsworth import config
-from jobsworth.util import secrets, databricks, error
+from jobsworthy import config
+from jobsworthy.util import secrets, databricks, error
 
 from tests.shared import *
 

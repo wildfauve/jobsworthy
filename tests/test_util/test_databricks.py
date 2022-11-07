@@ -1,5 +1,5 @@
 import json
-from jobsworth.util import databricks
+from jobsworthy.util import databricks
 
 # def test_mock_file_system():
 #     db_wrapper = databricks.DatabricksUtilMockWrapper(None, None)

@@ -1,6 +1,6 @@
 from typing import Union, Callable, Optional, List
 from azure.identity import ClientSecretCredential
-from jobsworth import config as cfg
+from jobsworthy import config as cfg
 from . import databricks, monad, error, logger, fn
 
 

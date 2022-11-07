@@ -1,6 +1,6 @@
 import re
 
-from jobsworth.util import env
+from jobsworthy.util import env
 
 normalise_pattern = pattern = re.compile(r'(?<!^)(?=[A-Z])')
 

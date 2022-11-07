@@ -1,5 +1,5 @@
-from jobsworth.util import singleton, logger
-from jobsworth.performance.repo import performance as repo
+from jobsworthy.util import singleton, logger
+from jobsworthy.performance.repo import performance as repo
 from functools import reduce
 
 

@@ -1,8 +1,8 @@
 import pytest
 from pyspark.sql import functions as F
 
-from jobsworth.repo import spark_db, cosmos_repo
-from jobsworth.util import error, secrets, databricks
+from jobsworthy.repo import spark_db, cosmos_repo
+from jobsworthy.util import error, secrets, databricks
 
 from tests.shared import spark_test_session, table_setup, cosmos_fixture, databricks_utils_helper
 

@@ -6,11 +6,11 @@ from functools import reduce
 import pyspark
 from pyspark.sql import dataframe
 
-from jobsworth.observer.domain import error, table
-from jobsworth.observer import repo
-from jobsworth.util import monad, validate, logger
-from jobsworth.observer.domain import metrics
-from jobsworth.structure import structure
+from jobsworthy.observer.domain import error, table
+from jobsworthy.observer import repo
+from jobsworthy.util import monad, validate, logger
+from jobsworthy.observer.domain import metrics
+from jobsworthy.structure import structure
 
 
 class Observable:
