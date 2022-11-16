@@ -5,7 +5,7 @@ from pathlib import Path
 from pymonad.tools import curry
 from inspect import getmembers, ismodule
 
-from .util import singleton, logger
+from jobsworthy.util import singleton
 
 def job(initialiser_module: str = None):
     """

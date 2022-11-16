@@ -8,6 +8,7 @@ from pyspark.sql import dataframe
 
 from jobsworthy.observer.domain import error, table
 from jobsworthy.observer import repo
+from jobsworthy import repo as hive_repo
 from jobsworthy.util import monad, validate, logger
 from jobsworthy.observer.domain import metrics
 from jobsworthy.structure import structure
@@ -330,11 +331,17 @@ class Emitter(Protocol):
 
 class ObserverHiveEmitter(Emitter):
 
-    def __init__(self, session, job_config):
+    def __init__(self, db: hive_repo.Db):
+                 # session,
+                 # job_config,
+                 # db_naming_cls: hive_repo.DbNamingConventionProtocol = hive_repo.DbNamingConventionCallerDefined):
         self.emitted_map = set()
-        if not self.session_is_spark_session(session):
+        if not self.session_is_spark_session(db.session):
             raise error.ObserverConfigError('Session provided is not a Spark Session.  Reconfigure Hive Emitter')
-        self.repo = repo.REPO(repo.DB(session=session, config=job_config))
+        self.repo = repo.REPO(db)
+        # self.repo = repo.REPO(repo.DB(session=session,
+        #                               job_config=job_config,
+        #                               naming_convention=db_naming_cls))
 
     @monad.monadic_try(error_cls=error.ObserverError)
     def emit(self, table, runs: List[Run]):
@@ -345,20 +352,12 @@ class ObserverHiveEmitter(Emitter):
             'countOfRunsToEmit': len(unemitted_runs)
         })
 
-        # result = self.repo.try_upsert(df=self.create_df(table, unemitted_runs),
-        #                               partition_puning_col=self.partition_col(),
-        #                               partition_cols=(self.partition_col(),))
-
-        result = self.repo.try_append(df=self.create_df(table, unemitted_runs),
-                                      partition_cols=(self.partition_col(),))
+        result = self.repo.try_write_append(df=self.create_df(table, unemitted_runs))
 
         if result.is_left():
             logger.info('jobsworth:observer:emit UPSERT ERROR', ctx=result.error().error())
         self.emitted_map.update(unemitted_runs)
         return result
-
-    def partition_col(self):
-        return 'hasRunDateUTC'
 
     def read(self):
         return self.repo.read()

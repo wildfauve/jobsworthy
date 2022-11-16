@@ -56,6 +56,9 @@ class PerfLogCapture(singleton.Singleton):
                 self.__class__.metrics_col: {}}}
 
 
+def performance_log():
+    return PerfLogCapture()
+
 def perf_log_callback(name, delta):
     PerfLogCapture().add_delta(name, delta)
     pass

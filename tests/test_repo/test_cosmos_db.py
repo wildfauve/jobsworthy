@@ -1,10 +1,7 @@
-import pytest
-from pyspark.sql import functions as F
+from jobsworthy import repo
+from jobsworthy.util import secrets
 
-from jobsworthy.repo import spark_db, cosmos_repo
-from jobsworthy.util import error, secrets, databricks
-
-from tests.shared import spark_test_session, table_setup, cosmos_fixture, databricks_utils_helper
+from tests.shared import tables, cosmos_fixture, databricks_utils_helper
 
 
 def test_config_options(test_db):
@@ -34,12 +31,12 @@ def test_reads_from_stream(test_db):
 #
 # Helpers
 #
-class MyCosmosTable(cosmos_repo.CosmosDb):
+class MyCosmosTable(repo.CosmosDb):
     pass
 
 
 def mock_cosmos_table(db):
-    df = table_setup.test_df(db.session)
+    df = tables.my_table_df(db)
     (df.write
      .format('delta')
      .mode("append")

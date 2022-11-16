@@ -2,11 +2,11 @@ from tests.shared import spark_test_session
 
 from pyspark.sql import functions as F
 from jobsworthy.util import logger
-from jobsworthy.performance import perf_log
-from jobsworthy.repo import spark_db
+from jobsworthy import performance
+from jobsworthy import repo
 
 
-class MyPerformanceRepo(perf_log.base_repo()):
+class MyPerformanceRepo(performance.base_repo()):
     table_name = 'my_performance_table'
 
 def setup_module():
@@ -14,15 +14,15 @@ def setup_module():
 
 
 def it_persists_the_observer_to_hive_using_emit(job_cfg_fixture, test_db):
-    db = spark_db.Db(session=spark_test_session.create_session(), config=job_cfg_fixture)
+    db = repo.spark_db.Db(session=spark_test_session.create_session(), job_config=job_cfg_fixture)
 
-    table = perf_log.performance_table_factory(performance_repo=MyPerformanceRepo, db=db)
+    table = performance.performance_table_factory(performance_repo=MyPerformanceRepo, db=db)
 
-    perf_log.new_correlation("1", "2022-10-20T00:00:00Z")
+    performance.new_correlation("1", "2022-10-20T00:00:00Z")
 
     logs_performance()
 
-    perf_log.write_log_to_db(table)
+    performance.write_log_to_db(table)
 
     cols = [F.col('run'),
             F.col('time'),
@@ -43,25 +43,22 @@ def it_persists_the_observer_to_hive_using_emit(job_cfg_fixture, test_db):
     assert row.delta_t
 
 def it_resets_the_performance_metrics_to_default():
-    perf_log.new_correlation("1", "2022-10-20T00:00:00Z")
+    performance.new_correlation("1", "2022-10-20T00:00:00Z")
 
-    perf_log.new_correlation("1", "2022-10-20T00:00:00Z")
+    performance.new_correlation("1", "2022-10-20T00:00:00Z")
     logs_performance()
 
-    assert [k for k in perf_log.PerfLogCapture().performance.keys()] == ['default', '1']
+    assert [k for k in performance.performance_log().performance.keys()] == ['default', '1']
 
-    perf_log.reset_logs()
+    performance.reset_logs()
 
-    assert perf_log.PerfLogCapture().performance == {'default': {'time': None, 'counter': None, 'metrics': {}}}
-
-
-
+    assert performance.performance_log().performance == {'default': {'time': None, 'counter': None, 'metrics': {}}}
 
 
 
 #
 # Helpers
 #
-@logger.with_perf_log(perf_log_type='fn', name='logs_performance', callback=perf_log.perf_log_callback)
+@logger.with_perf_log(perf_log_type='fn', name='logs_performance', callback=performance.perf_log_callback)
 def logs_performance():
     return True

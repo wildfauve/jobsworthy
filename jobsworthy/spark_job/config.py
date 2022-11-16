@@ -1,6 +1,6 @@
 import re
 
-from jobsworthy.util import env
+from jobsworthy.util import env, error
 
 normalise_pattern = pattern = re.compile(r'(?<!^)(?=[A-Z])')
 
@@ -12,9 +12,9 @@ def normalise(token):
 
 class JobConfig:
     def __init__(self,
-                 domain_name: str,
-                 data_product_name: str,
-                 service_name: str,
+                 domain_name: str = None,
+                 data_product_name: str = None,
+                 service_name: str = None,
                  client_id_key: str = None,
                  client_secret_key: str = None,
                  tenant_key: str = None,
@@ -28,6 +28,7 @@ class JobConfig:
         self.env = env
         self.db = DbConfig()
         self.cosmos_db = CosmosDbConfig()
+        self.is_running_in_test = False
 
     def configure_hive_db(self, *args, **kwargs):
         self.db.configure(*args, **kwargs)
@@ -36,6 +37,11 @@ class JobConfig:
     def configure_cosmos_db(self, *args, **kwargs):
         self.cosmos_db.configure(*args, **kwargs)
         return self
+
+    def running_in_test(self):
+        self.is_running_in_test = True
+        return self
+
 
 
 class DbConfig:
@@ -46,11 +52,17 @@ class DbConfig:
                  db_name: str,
                  db_file_system_path_root: str = None,
                  table_format: str = default_table_format,
-                 checkpoint_root: str = ""):
+                 checkpoint_root: str = None,
+                 db_path_override_for_checkpoint: str = None):
         self.db_name = normalise(db_name)
         self.table_format = table_format
         self.db_file_system_root = normalise(db_file_system_path_root)
-        self.checkpoint_root = normalise(checkpoint_root)
+        self.checkpoint_root = checkpoint_root
+        self.db_path_override_for_checkpoint = normalise(db_path_override_for_checkpoint)
+        if self.checkpoint_root:
+            raise error.RepoConfigError(
+                message="Jobsworthy: use of checkpoint_root no longer supported.  Use db_path_override_for_checkpoint.")
+
 
 
 class CosmosDbConfig:

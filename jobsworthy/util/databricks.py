@@ -75,14 +75,3 @@ class SecretMock:
             return secret
         msg = f"Secret does not exist with scope: {scope} and key: {key}"
         raise self.IllegalArgumentException(msg)
-
-
-# class CommonFileSystem:
-#
-#     def ls(self):
-#         pass
-#
-#     @contextmanager
-#     def open(self, location, access):
-#         with open(location, access) as file_generator:
-#             yield file_generator

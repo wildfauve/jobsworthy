@@ -2,11 +2,15 @@ from typing import List
 from pyspark.sql import types as T
 from pyspark.sql import functions as F
 
-from jobsworthy.repo import hive_repo
+from jobsworthy import repo
 
 
-class Observer(hive_repo.HiveRepo):
+class Observer(repo.HiveRepo):
     table_name = "observer"
+
+    partition_columns = ("hasRunDateUTC",)
+
+    pruning_column = 'hasRunDateUTC'
 
     def identity_merge_condition(self, name_of_baseline, update_name):
         return f"{name_of_baseline}.run.id = {update_name}.run.id"

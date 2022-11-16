@@ -4,14 +4,16 @@ A set of utility functions and classes to aid in build Spark jobs on Azure datab
 
 ## Job Configuration
 
-## Spark Job
+## Spark Job Module
 
 Job provides a decorator which wraps the execution of a spark job.  You use the decorator at the entry point for the job.
 At the moment it performs 1 function; calling all the registered initialisers.
 
 ```python
-from jobsworthy import  spark_job
+from jobsworthy import spark_job
+```
 
+```python
 @spark_job.job()
 def execute(args=None) -> monad.EitherMonad[value.JobState]:
     pass
@@ -20,8 +22,6 @@ def execute(args=None) -> monad.EitherMonad[value.JobState]:
 To register initialisers (to be run just before the job function is called) do the following.
 
 ```python
-from jobsworthy import  spark_job
-
 @spark_job.register()
 def some_initialiser():
     ...
@@ -30,29 +30,88 @@ def some_initialiser():
 The initialisers must be imported before the job function is called; to ensure they are registered.  To do that, either import them directly in the job module, or add them to a module `__init__.py` and import the module.
 
 
-## Repo Library
+## Model Library
+
+### Streamer
+
+The `Streamer` module provides a fluent streaming abstraction on top of 2 hive repos (the from and to repos).  The Streamer runs a pipeline as follows:
+
++ Read from the source repo.
++ Perform a transformation.
++ Write to the target repo.  This is where the stream starts and uses pyspark streaming to perform the read, transform and write.
++ Wait for the stream to finish.
+
+To setup a stream:
+
+```python
+from jobsworthy import model
+
+streamer = (model.STREAMER()
+                 .stream_from(from_table)
+                 .stream_to(to_table)
+                 .with_transformer(transform_fn))
+
+# Execute the stream
+result = streamer.run()
+
+# When successful it returns the Streamer wrapped in a Right.
+# When there is a failure, it returns the error (subtype of JobError) wrapped in a Left   
+
+assert result.is_right()
+```
+
+Some transformation functions require data from outside the input table.  You can configure the streamer with additional transformation context by passing in kwargs on the `with_transformer`.
+
+```python
+from dataclasses import dataclass
+from jobsworthy import model
+
+
+@dataclass
+class TransformContext:
+    run_id: int
+
+def transform_fn_with_ctx(df, **kwargs):
+    ...
+
+    
+streamer = (model.Streamer()
+                 .stream_from(from_table)
+                 .stream_to(to_table)
+                 .with_transformer(transform_fn_with_ctx, run=TransformContext(run_id=1)))
+
+```
+
+When configuring the `stream_to` table, you can provide partition columns when writing the stream.  Provide a tuple of column names. 
+
+```python
+streamer = model.STREAMER().stream_to(to_table, ('name', ))
+```
+
+### Repository Module
 
 The repo library offers a number of simple abstractions for managing Databrick/Spark databases and tables.  It is by no means an object-mapper.  Rather its a few classes with some simple functions we have found useful when working with Hive tables.
 
-### Spark DB
+```python
+from jobsworthy import repo
+```
 
-`repo.spark_db.py` is the base class representing a Hive Database.  Once constructed it is provided to the hive table classes when they are constructed.
+### SparkDB
 
-`spark_db` takes a [spark session](#spark-session) and a [job config](#job-configuration).
+`Db` is the base class representing a Hive Database.  Once constructed it is provided to the hive table classes when they are constructed.
+
+`Db` takes a [spark session](#spark-session) and a [job config](#job-configuration).
 
 ```python
-from jobsworthy.repo import spark_db
-
-db = spark_db.Db(session=spark_test_session.create_session(), config=job_config())
+db = repo.Db(session=spark_test_session.create_session(), config=job_config())
 ```
 
 When intialised it checks that the database (defined in the config) exists and creates it if it doesn't.
 
-### Hive Repo
+### Hive Table
 
 
-
-## Util Library
+## Util Module
 
 ### Spark Session
 

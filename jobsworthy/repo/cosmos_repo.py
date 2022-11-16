@@ -39,7 +39,7 @@ class CosmosDb:
 
 
 
-class StreamReader:
+class CosmosStreamReader:
     format = "cosmos.oltp.changeFeed"
 
     def read_stream(self, repo):

@@ -1,9 +1,7 @@
-import pytest
-
-from jobsworthy import config
-from jobsworthy.util import secrets, databricks, error
+from jobsworthy.util import error
 
 from tests.shared import *
+from tests.shared import config_for_testing
 
 
 def test_reads_secret_from_scope(test_container):
@@ -124,7 +122,8 @@ def test_session_initialised(test_container):
     from pyspark.sql import session
     from tests.shared import dependencies as deps
 
-    the_secret = deps.secrets_provider().get_secret("CosmosDBAuthorizationKey", non_default_scope_name="my_secrets_scope")
+    the_secret = deps.secrets_provider().get_secret("CosmosDBAuthorizationKey",
+                                                    non_default_scope_name="my_secrets_scope")
 
     assert the_secret.value == "a-secret"
     assert isinstance(deps.secrets_provider().utils().session, session.SparkSession)
@@ -156,11 +155,12 @@ def test_client_credentials(test_container):
 # Helpers
 #
 def job_config():
-    return config.JobConfig(data_product_name="my_data_product_name",
-                            domain_name="my_domain",
-                            service_name="my_service",
-                            client_id_key='client_id',
-                            client_secret_key='client_secret',
-                            tenant_key='tenant_id').configure_hive_db(db_name="my_db",
-                                                                      db_file_system_path_root="spark-warehouse",
-                                                                      checkpoint_root="tests/db")
+    return (spark_job.JobConfig(data_product_name="my_data_product_name",
+                                domain_name="my_domain",
+                                service_name="my_service",
+                                client_id_key='client_id',
+                                client_secret_key='client_secret',
+                                tenant_key='tenant_id')
+            .configure_hive_db(db_name="my_db",
+                               db_file_system_path_root=config_for_testing.DB_FILE_SYSTEM_PATH_ROOT,
+                               db_path_override_for_checkpoint=config_for_testing.CHECKPOINT_OVERRIDE))

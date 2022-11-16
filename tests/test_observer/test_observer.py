@@ -92,8 +92,8 @@ def it_generates_multiple_runs_from_the_same_observer():
 
 
 @time_machine.travel(pendulum.datetime(2022, 10, 21, 9, 0, tz='UTC'))
-def it_builds_table_from_run(job_cfg_fixture):
-    obs = create_obs_with_hive_emitter(job_cfg_fixture)
+def it_builds_table_from_run(test_db):
+    obs = create_obs_with_hive_emitter(test_db)
     job_run = create_full_run(None, obs)
 
     rows = obs.emitter.runs_to_rows(obs.table, [job_run])
@@ -133,8 +133,8 @@ def it_builds_table_from_run(job_cfg_fixture):
 
     assert not metrics
 
-def test_all_cells_valid(job_cfg_fixture):
-    obs = create_obs_with_hive_emitter(job_cfg_fixture)
+def test_all_cells_valid(test_db):
+    obs = create_obs_with_hive_emitter(test_db)
     job_run = create_full_run(None, obs)
 
     rows = obs.emitter.runs_to_rows(obs.table, [job_run])
@@ -156,9 +156,8 @@ def create_obs():
     emitter = observer.ObserverNoopEmitter()
     return observer.observer_factory("test", observer.SparkJob(), emitter)
 
-def create_obs_with_hive_emitter(job_cfg_fixture):
-    emitter = observer.ObserverHiveEmitter(session=spark_test_session.MockPySparkSession,
-                                           job_config=job_cfg_fixture)
+def create_obs_with_hive_emitter(test_db):
+    emitter = observer.ObserverHiveEmitter(test_db)
 
     return observer.observer_factory("test", observer.SparkJob(), emitter)
 

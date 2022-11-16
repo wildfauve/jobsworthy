@@ -1,6 +1,6 @@
 from tests.shared import spark_test_session
 
-from jobsworthy.observer import observer
+from jobsworthy import observer
 
 
 class RunOfMySparkJob(observer.Run):
@@ -25,9 +25,8 @@ def setup_module():
     observer.define_namespace(observer.ObjectStore, 'https://example.nz/service/datasets/batchFile/')
 
 
-def it_persists_the_observer_to_hive_using_emit(job_cfg_fixture, test_db):
-    emitter = observer.ObserverHiveEmitter(session=spark_test_session.create_session(),
-                                           job_config=job_cfg_fixture)
+def it_persists_the_observer_to_hive_using_emit(test_db):
+    emitter = observer.ObserverHiveEmitter(test_db)
     obs = create_obs(emitter)
     create_full_run(obs)
 
@@ -43,9 +42,22 @@ def it_persists_the_observer_to_hive_using_emit(job_cfg_fixture, test_db):
     assert rows[0].run.hasTrace == 'https://example.com/service/jobs/job/trace_uuid'
 
 
+def it_persists_the_observer_using_the_domain_naming_convention(test_db_domain_naming_convention):
+    emitter = observer.ObserverHiveEmitter(test_db_domain_naming_convention)
+    obs = create_obs(emitter)
+    create_full_run(obs)
+
+    obs.emit()
+
+    df = emitter.repo.read()
+
+    rows = df.select(df.hasRunTime, df.run).collect()
+
+    assert len(rows) == 1
+
+
 def it_persists_the_observer_on_completion(job_cfg_fixture, test_db):
-    emitter = observer.ObserverHiveEmitter(session=spark_test_session.create_session(),
-                                           job_config=job_cfg_fixture)
+    emitter = observer.ObserverHiveEmitter(test_db)
     obs = create_obs(emitter)
 
     job_run = create_full_run(obs)
@@ -63,9 +75,8 @@ def it_persists_the_observer_on_completion(job_cfg_fixture, test_db):
     assert rows[0].hasTrace == 'https://example.com/service/jobs/job/trace_uuid'
 
 
-def it_persists_a_single_run(job_cfg_fixture, test_db):
-    emitter = observer.ObserverHiveEmitter(session=spark_test_session.create_session(),
-                                           job_config=job_cfg_fixture)
+def it_persists_a_single_run(test_db):
+    emitter = observer.ObserverHiveEmitter(test_db)
     obs = create_obs(emitter)
 
     job_run1 = create_full_run(obs)
@@ -78,10 +89,8 @@ def it_persists_a_single_run(job_cfg_fixture, test_db):
     assert df.count() == 1
 
 
-
-def it_emits_multiple_inputs_and_outputs(job_cfg_fixture, test_db):
-    emitter = observer.ObserverHiveEmitter(session=spark_test_session.create_session(),
-                                           job_config=job_cfg_fixture)
+def it_emits_multiple_inputs_and_outputs(test_db):
+    emitter = observer.ObserverHiveEmitter(test_db)
     obs = create_obs(emitter)
 
     job_run = create_full_run(obs)
@@ -103,9 +112,8 @@ def create_obs(emitter):
 #
 #
 #
-def it_builds_all_created_runs_when_emit_not_provided_with_specific_runs(job_cfg_fixture, test_db):
-    emitter = observer.ObserverHiveEmitter(session=spark_test_session.create_session(),
-                                           job_config=job_cfg_fixture)
+def it_builds_all_created_runs_when_emit_not_provided_with_specific_runs(test_db):
+    emitter = observer.ObserverHiveEmitter(test_db)
     obs = create_obs(emitter)
 
     _job_run1 = create_full_run(obs)
@@ -118,9 +126,8 @@ def it_builds_all_created_runs_when_emit_not_provided_with_specific_runs(job_cfg
     assert df.count() == 2
 
 
-def it_builds_only_runs_provided_when_emit_provided_with_specific_runs(job_cfg_fixture, test_db):
-    emitter = observer.ObserverHiveEmitter(session=spark_test_session.create_session(),
-                                           job_config=job_cfg_fixture)
+def it_builds_only_runs_provided_when_emit_provided_with_specific_runs(test_db):
+    emitter = observer.ObserverHiveEmitter(test_db)
     obs = create_obs(emitter)
 
     job_run1 = create_full_run(obs)
@@ -134,9 +141,8 @@ def it_builds_only_runs_provided_when_emit_provided_with_specific_runs(job_cfg_f
     assert df.count() == 2
 
 
-def it_idempotently_emits_runs(job_cfg_fixture, test_db):
-    emitter = observer.ObserverHiveEmitter(session=spark_test_session.create_session(),
-                                           job_config=job_cfg_fixture)
+def it_idempotently_emits_runs(test_db):
+    emitter = observer.ObserverHiveEmitter(test_db)
     obs = create_obs(emitter)
 
     job_run1 = create_full_run(obs)
@@ -151,9 +157,8 @@ def it_idempotently_emits_runs(job_cfg_fixture, test_db):
     assert df.count() == 2
 
 
-def test_read_observer_by_state_and_run(job_cfg_fixture, test_db):
-    emitter = observer.ObserverHiveEmitter(session=spark_test_session.create_session(),
-                                           job_config=job_cfg_fixture)
+def test_read_observer_by_state_and_run(test_db):
+    emitter = observer.ObserverHiveEmitter(test_db)
     obs = create_obs(emitter)
 
     job_run1 = create_full_run(obs)
@@ -167,8 +172,6 @@ def test_read_observer_by_state_and_run(job_cfg_fixture, test_db):
 
     assert len(rows) == 2
     assert [row[0][0] for row in rows] == ['file_loc', 'file_loc']
-
-
 
 
 def create_run(obs=None, emitter=None):
