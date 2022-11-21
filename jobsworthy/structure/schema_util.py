@@ -60,6 +60,11 @@ def build_struct_field(vocab_path: str, vocab, struct_type: StructType, nullable
     term, meta = V.term_and_meta(vocab_path, vocab)
     return build_field(term, struct_type, metadata=meta, nullable=nullable)
 
+# to build a field with type as a parameter. 
+# e.g. build_type_field('path',vocab, IntegerType(), nullable=False) creates an integer type field
+def build_type_field(vocab_path, vocab, field_type, nullable) -> StructField:
+    term, meta = V.term_and_meta(vocab_path, vocab)
+    return build_field(term, field_type, metadata=meta, nullable=nullable)
 
 at_id = build_string_field("*.@id", common_vocab, nullable=False)
 
