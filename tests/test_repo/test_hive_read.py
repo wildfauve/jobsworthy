@@ -6,7 +6,7 @@ def test_read_table(test_db):
     my_table.write_append(tables.my_table_df(test_db))
 
     df = my_table.read()
-    assert df.columns == ['id', 'name', 'pythons', 'season']
+    assert df.columns == ['id', 'isDeleted', 'name', 'pythons', 'season']
 
     sketches = set([(row.id, row.name) for row in df.select(df.id, df.name).collect()])
 

@@ -16,6 +16,27 @@ class MyHiveTable(repo.HiveRepo):
         return f"{name_of_baseline}.id = {update_name}.id"
 
 
+class MyHiveTableWithUpdataAndDeleteCondition(repo.HiveRepo):
+    table_name = "my_hive_table"
+    temp_table_name = "_temp_my_hive_table"
+    partition_columns = ("name",)
+    pruning_column = 'name'
+
+    table_properties = [
+        repo.TableProperty("my_namespace:spark:table:schema:version", "0.0.1")
+    ]
+
+    def identity_merge_condition(self, name_of_baseline, update_name):
+        return f"{name_of_baseline}.id = {update_name}.id"
+
+    def update_condition(self, _name_of_baseline, update_name):
+        return f"{update_name}.isDeleted = false"
+
+    def delete_condition(self, _name_of_baseline, update_name):
+        return f"{update_name}.isDeleted = true"
+
+
+
 class MyHiveTableWithoutIdentityCondition(repo.HiveRepo):
     table_name = "my_hive_table"
     temp_table_name = "_temp_my_hive_table"
@@ -59,6 +80,9 @@ def my_table_df(db):
 
 def my_table_df_new_rows(db):
     return db.session.read.json("tests/fixtures/table1_rows_2.json", multiLine=True, prefersDecimal=True)
+
+def my_table_df_deleted_rows(db):
+    return db.session.read.json("tests/fixtures/table1_rows_with_delete.json", multiLine=True, prefersDecimal=True)
 
 
 def my_table_df_updated_row(db):

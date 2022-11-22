@@ -7,7 +7,7 @@ from jobsworthy.util import session as spark_session
 from tests.shared import config_for_testing, cosmos_fixture, spark_test_session
 
 
-class TestContainer(containers.DeclarativeContainer):
+class LocalContainer(containers.DeclarativeContainer):
     session = providers.Callable(
         spark_session.build_spark_session,
         "test_spark_session",
@@ -44,7 +44,7 @@ def test_container():
 
 
 def init_container():
-    di = TestContainer()
+    di = LocalContainer()
     # di.config.from_dict(config_for_testing.config)
     di.wire(modules=['tests.shared.dependencies'])
     return di

@@ -100,7 +100,7 @@ def test_non_partitioned_delta_upsert_with_new_rows(test_db):
 
 
 def test_errors_when_delta_upserting_in_test_without_checkpoint_override():
-    db = repo.Db(session=spark_test_session.create_session(), job_config=test_job_config_without_checkpoint_override())
+    db = repo.Db(session=spark_test_session.create_session(), job_config=job_config_without_checkpoint_override())
 
     my_table = tables.MyHiveTable(db=db)
 
@@ -155,6 +155,20 @@ def test_partitions_using_repo_declared_partitions_on_append(test_db):
     assert df.rdd.getNumPartitions() == 2
 
 
+def test_delete_condition(test_db):
+    my_table = tables.MyHiveTableWithUpdataAndDeleteCondition(db=test_db)
+
+    my_table.try_upsert(tables.my_table_df(test_db))
+
+    assert my_table.read().count() == 2
+
+    my_table.upsert(tables.my_table_df_deleted_rows(test_db))
+
+    df = my_table.read()
+
+    assert df.count() == 1
+
+
 #
 # Helpers
 #
@@ -167,7 +181,7 @@ def job_config():
                                db_path_override_for_checkpoint=config_for_testing.CHECKPOINT_OVERRIDE))
 
 
-def test_job_config_without_checkpoint_override():
+def job_config_without_checkpoint_override():
     return (spark_job.JobConfig(data_product_name="my_data_product_name",
                                 domain_name="my_domain",
                                 service_name="my_service")

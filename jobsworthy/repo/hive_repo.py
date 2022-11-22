@@ -270,12 +270,24 @@ class HiveRepo:
         return self._perform_upsert(df, None)
 
     def _perform_upsert(self, df, _batch_id=None):
-        return (self.delta_table().alias(self.table_name)
-                .merge(df.alias('updates'),
-                       self.build_merge_condition(self.table_name, 'updates', self.prune_on()))
-                .whenNotMatchedInsertAll()
-                .whenMatchedUpdateAll()
-                .execute())
+        upserter = (self.delta_table().alias(self.table_name)
+                    .merge(df.alias('updates'),
+                           self.build_merge_condition(self.table_name, 'updates', self.prune_on()))
+                    .whenNotMatchedInsertAll())
+
+        # note that the conditions appear to return a new version of te upserter, rather than mutating the merge
+        # class.  Therefore, to apply the UpdateAll and Delete conditionally, the upserter var needs to be updated with
+        # the new version of the merge class.
+        # TODO: a better approach might be a reduce(condition_applier, [whenMatchedUpdateAll, whenMatchedDelete], upserter)
+        if hasattr(self, 'update_condition'):
+            upserter = upserter.whenMatchedUpdateAll(condition=self.update_condition(self.table_name, 'updates'))
+        else:
+            upserter = upserter.whenMatchedUpdateAll()
+
+        if hasattr(self, 'delete_condition'):
+            upserter = upserter.whenMatchedDelete(condition=self.delete_condition(self.table_name, 'updates'))
+
+        return upserter.execute()
 
     #
     # Streaming Functions
@@ -371,7 +383,7 @@ class HiveRepo:
                                                   self.db.naming().checkpoint_location(table_name))
                                           .trigger(**trigger_condition)
                                           .foreachBatch(self._perform_upsert)
-                                          .outputMode('update'),
+                                          .outputMode('append'),
                                           table_name)
 
     def await_termination(self, other_stream_query=None):

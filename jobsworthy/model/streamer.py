@@ -1,4 +1,5 @@
 from typing import Callable, Tuple, Dict
+from enum import Enum
 from uuid import uuid4
 from pyspark.sql import dataframe
 
@@ -6,21 +7,26 @@ from jobsworthy.repo import hive_repo
 from jobsworthy.util import monad
 from . import value, model_errors
 
+class StreamWriterMode(Enum):
+    APPEND = 'try_write_stream'
+    MERGE = 'stream_write_via_delta_upsert'
 
 class Streamer:
+    default_stream_writer_op = StreamWriterMode.APPEND
 
     def __init__(self,
                  stream_from_table: hive_repo.HiveRepo = None,
                  stream_from_to: hive_repo.HiveRepo = None,
                  transformer: Callable = None,
                  transformer_context: Dict = None,
-                 partition_with: Tuple = None):
+                 stream_write_op: StreamWriterMode = None):
         self.stream_id = str(uuid4())
         self.runner = Runner()
         self.stream_to_table = stream_from_to
         self.stream_from_table = stream_from_table
         self.transformer = transformer
         self.transformer_context = transformer_context if transformer_context else dict()
+        self.stream_write_op = stream_write_op if stream_write_op else self.__class__.default_stream_writer_op
 
     def stream_from(self, table: hive_repo.HiveRepo):
         self.stream_from_table = table
@@ -29,6 +35,10 @@ class Streamer:
     def stream_to(self, table: hive_repo.HiveRepo, partition_columns: Tuple[str] = tuple()):
         self.stream_to_table = table
         self.partition_with = partition_columns
+        return self
+
+    def with_write_mode(self, write_mode: StreamWriterMode):
+        self.stream_write_op = write_mode
         return self
 
     def with_transformer(self, transformer: Callable, **kwargs):
@@ -71,8 +81,8 @@ class Runner:
         return monad.Right(val.replace('stream_transformed_dataframe', result))
 
     def start_and_write_stream(self, val: value.StreamState) -> monad.EitherMonad[value.StreamState]:
-        result = (val.stream_configuration.stream_to_table
-                  .try_write_stream(val.stream_transformed_dataframe))
+        result = (getattr(val.stream_configuration.stream_to_table, val.stream_configuration.stream_write_op.value)(
+            (val.stream_transformed_dataframe)))
         if result.is_left():
             return monad.Left(val.replace('error', result.error()))
         return monad.Right(val)

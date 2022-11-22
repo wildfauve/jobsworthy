@@ -71,7 +71,7 @@ def test_fluent_streaming_api(test_db, from_table, to_table):
     from_table.write_append(tables.my_table_df(test_db))
 
     streamer = (model.Streamer().stream_from(from_table)
-                .stream_to(to_table, ('name',))
+                .stream_to(to_table)
                 .with_transformer(transform_fn))
 
     result = streamer.run()

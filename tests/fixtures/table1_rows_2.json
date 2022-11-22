@@ -1,7 +1,7 @@
 [
   {
     "id": "https://example.nz/montyPython/sketches/ericTheHalfBee",
-    "name": "The Piranha Brothers",
+    "name": "Eric the Half Bee",
     "season": "S02E01",
     "pythons": [
       {
@@ -10,11 +10,12 @@
       {
         "id": "https://example.nz/montyPython/johnCleese"
       }
-    ]
+    ],
+    "isDeleted": "false"
   },
   {
     "id": "https://example.nz/montyPython/sketches/theCheeseShop",
-    "name": "The Spanish Inquisition",
+    "name": "The Cheese Shop",
     "season": "S02E02",
     "pythons": [
       {
@@ -23,6 +24,7 @@
       {
         "id": "https://example.nz/montyPython/johnCleese"
       }
-    ]
+    ],
+    "isDeleted": "false"
   }
 ]

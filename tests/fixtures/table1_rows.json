@@ -10,7 +10,8 @@
       {
         "id": "https://example.nz/montyPython/johnCleese"
       }
-    ]
+    ],
+    "isDeleted": "false"
   },
   {
     "id": "https://example.nz/montyPython/sketches/theSpanishInquisition",
@@ -23,9 +24,10 @@
       {
         "id": "https://example.nz/montyPython/terryJones"
       },
-            {
+      {
         "id": "https://example.nz/montyPython/terryGillian"
       }
-    ]
+    ],
+    "isDeleted": "false"
   }
 ]

@@ -3,7 +3,7 @@ name = "jobsworth"
 
 [cluster]
 url = "https://adb-575697367950122.2.azuredatabricks.net"
-cluster_ids = ["0914-001041-jbnfazlx"]
+cluster_ids = ["0914-001041-jbnfazlx", "0613-232015-oltihh6r"]
 
 [artefacts]
 root = "dbfs:/artifacts/common/python/dist"

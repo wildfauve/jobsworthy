@@ -9,11 +9,8 @@
       },
       {
         "id": "https://example.nz/montyPython/johnCleese"
-      },
-      {
-        "id": "https://example.nz/montyPython/ericIdol"
       }
     ],
-    "isDeleted": "false"
+    "isDeleted": "true"
   }
 ]
