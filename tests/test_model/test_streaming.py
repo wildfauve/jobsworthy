@@ -84,6 +84,80 @@ def test_fluent_streaming_api(test_db, from_table, to_table):
     assert table_2_df.rdd.getNumPartitions() == 2
 
 
+def test_delta_merge_write_stream(test_db, from_table, to_table):
+    from_table.write_append(tables.my_table_df(test_db))
+
+    streamer = (model.Streamer().stream_from(from_table)
+                .stream_to(table=to_table, write_type=model.StreamWriteType.UPSERT)
+                .with_transformer(transform_fn))
+
+    result = streamer.run()
+
+    assert result.is_right()
+
+
+def test_multi_streamer_with_1_stream(test_db, from_table, to_table):
+    from_table.write_append(tables.my_table_df(test_db))
+
+    streamer = (model.MultiStreamer().stream_from(from_table)
+                .with_stream_to_pair(model.StreamToPair().stream_to(table=to_table,
+                                                                    write_type=model.StreamWriteType.APPEND)
+                                     .with_transformer(transform_fn)))
+
+    result = streamer.run()
+
+    assert result.is_right()
+
+    table_2_df = to_table.read()
+
+    assert "onStream" in table_2_df.columns
+    assert table_2_df.rdd.getNumPartitions() == 2
+
+def test_multi_streamer_with_2_streams(test_db, from_table, to_table, alternate_to_table):
+    from_table.write_append(tables.my_table_df(test_db))
+
+    streamer = (model.MultiStreamer().stream_from(from_table)
+                .with_stream_to_pair(model.StreamToPair().stream_to(table=to_table,
+                                                                    write_type=model.StreamWriteType.APPEND)
+                                     .with_transformer(transform_fn))
+                .with_stream_to_pair(model.StreamToPair().stream_to(table=alternate_to_table,
+                                                                    write_type=model.StreamWriteType.APPEND)
+                                     .with_transformer(alternate_transform_fn))
+                )
+
+    result = streamer.run()
+
+    assert result.is_right()
+
+    table_2_df = to_table.read()
+    table_3_df = alternate_to_table.read()
+
+    assert table_2_df.columns == ['id', 'name', 'pythons', 'season', 'onStream']
+    assert table_3_df.columns == ['id', 'name', 'pythons', 'season', 'alternateOnStream']
+
+def test_multi_streamer_with_2_streams_upsert_append(test_db, from_table, to_table, alternate_to_table):
+    from_table.write_append(tables.my_table_df(test_db))
+
+    streamer = (model.MultiStreamer().stream_from(from_table)
+                .with_stream_to_pair(model.StreamToPair().stream_to(table=to_table,
+                                                                    write_type=model.StreamWriteType.UPSERT)
+                                     .with_transformer(transform_fn))
+                .with_stream_to_pair(model.StreamToPair().stream_to(table=alternate_to_table,
+                                                                    write_type=model.StreamWriteType.APPEND)
+                                     .with_transformer(alternate_transform_fn))
+                )
+
+    result = streamer.run()
+
+    assert result.is_right()
+
+    table_2_df = to_table.read()
+    table_3_df = alternate_to_table.read()
+
+    assert table_2_df.columns == ['id', 'isDeleted', 'name', 'pythons', 'season', 'onStream']
+    assert table_3_df.columns == ['id', 'isDeleted', 'name', 'pythons', 'season', 'alternateOnStream']
+
+
 def test_any_context_to_transformer(test_db, from_table, to_table):
     @dataclass
     class TransformContext:
@@ -120,8 +194,18 @@ def to_table(test_db):
                                stream_writer=repo.StreamFileWriter)
 
 
+@pytest.fixture
+def alternate_to_table(test_db):
+    return tables.MyHiveTable3(db=test_db,
+                               reader=repo.DeltaFileReader,
+                               stream_writer=repo.StreamFileWriter)
+
+
 def transform_fn(df):
     return df.withColumn('onStream', F.lit("true"))
+
+def alternate_transform_fn(df):
+    return df.withColumn('alternateOnStream', F.lit("true"))
 
 
 def transform_fn_with_ctx(df, **kwargs):

@@ -110,6 +110,151 @@ When intialised it checks that the database (defined in the config) exists and c
 
 ### Hive Table
 
+The `HiveTable` class is an abstraction for a delta or hive table.  Inheriting from this class provides a number of helper and table management.  It also provides common reading and writing functions (both stream and batch).
+
+#### Basic Configuration
+
+The most basic Hive table can look like this.
+
+```python
+class MyHiveTable(repo.HiveRepo):
+    table_name = "my_hive_table"
+
+# Initialise it with a SparkDb instance
+db = repo.Db(session=spark_test_session.create_session(), job_config=job_cfg())
+my_table = MyHiveTable(db=db)
+    
+# Create a dataframe from the table
+df = MyHiveTable().read()  # => pyspark.sql.dataframe.DataFrame
+
+# Append to the Table
+df2 = db.session.read.json("tests/fixtures/table1_rows.json", multiLine=True, prefersDecimal=True)
+my_table.write_append(df2)
+```
+
+#### Table Schema
+
+#### Partitioning and Pruning
+
+#### Table Properties
+
+Hive table properties provide a means of storing key value pairs in the table, which are retrievable as a dataframe.  The table property key is a URN, while the value is a string.  To store more complex objects in the value, requires serialisation into a string and interpretation outside the library.
+
+Use `repo.TableProperty` class to declare properties.  This class takes a number of key formats; a URN, URN without the URN portion (as a shortcut) and a common table property using the repo.DataAgreementType enum.
+
+The table properties are declared as a class property on the table.  The repo module is then able to maintain those properties on the table.  The merging of properties is the responsibility of the table instance.  Calling `self.property_manager.merge_table_properties()` will explicitly merge the declared difference of the properties defined in the table with the properties on the Hive Table itself.
+
+When table properties are declared, and the Hive table is created (`create_as_unmanaged_delta_table()`) the table proeprties are merged to the table.
+
+The table instance can also use callbacks to call the merge_table_properties() function.
+
+```python
+# Table using a URN (without the 'urn:' prefix, which is added when merged to the table).
+# The properties are merged when the table instance is created.  This is an idempotent operation.
+class MyHiveTable1(repo.HiveRepo):
+    table_name = "my_hive_table_3"
+
+    table_properties = [
+        repo.TableProperty("my_namespace:spark:table:schema:version", "0.0.1")
+    ]
+
+    def after_initialise(self, _result):
+        self.property_manager.merge_table_properties()
+
+
+# Table showing the use of a full URN, and the merge executed when the table is created.
+class MyHiveTable2(repo.HiveRepo):
+    table_name = "my_hive_table_2"
+
+    table_properties = [
+        repo.TableProperty("urm:my_namespace:spark:table:schema:version", "0.0.1")
+    ]
+
+    def after_initialise(self, _result):
+        self.create_as_unmanaged_delta_table()
+        
+
+# Table showing the use of a predefined property.  Note the need to provide the namespace to allow
+# the URN to be in the form of urn:<namespace>:<specific-part>
+class MyHiveTable3(repo.HiveRepo):
+    table_name = "my_hive_table_3"
+
+    table_properties = [
+        repo.TableProperty(repo.DataAgreementType.SCHEMA_VERSION, "0.0.1", "my_namespace")
+    ]
+
+    def after_initialise(self, _result):
+        self.create_as_unmanaged_delta_table()
+```
+
+There are a number of defined URNs that define specific data agreement properties.  They are available in the ENUM `repo.DataAgreementType`: 
+
++ `SCHEMA`. 
+  + URN is `urn:{ns}:spark:table:schema`
++ `SCHEMA_VERSION`.  
+  + URN is `urn:{ns}:spark:table:schema:version`
++ `PARTITION_COLUMNS`. 
+  + URN is `urn:{ns}:spark:table:schema:partitionColumns`.  
+  + Value is a comma separated list.
++ `PRUNE_COLUMN`. 
+  + URN is `urn:{ns}:spark:table:schema:pruneColumn`
++ `DATA_PRODUCT`. 
+  + URN is `urn:{ns}:dataProduct`
++ `PORT`. 
+  + URN is `urn:{ns}:dataProduct:port`
++ `UPDATE_FREQUENCY`. 
+  + URN is `urn:{ns}:dq:updateFrequency`
++ `CATALOGUE`. 
+  + URN is `urn:{ns}:catalogue`
++ `DESCRIPTION`. 
+  + URN is `urn:{ns}:catalogue:description`
+
+
+
+
+#### Callbacks
+
+`HiveTable` has a number of callback events which the table class can implement:
++ `after_initialise`.  Called after the `HiveTable` `__init__` function has completed.
++ `after_append`.  Called after the `write_append` function has completed.
+
+One use of the callbacks is to create the table as a Hive table, or to update table properties.  `HiveTable` provides a function called `create_as_unmanaged_delta_table`.  This function creates an unmanaged delta table based on a schema provided by table class.  the `after_initialise` callback can be used to ensure the table is created with the appropriate schema and properties before data is written to it.
+
+```python
+db = repo.Db(session=spark_test_session.create_session(), job_config=job_cfg())
+
+class MyHiveTable(repo.HiveRepo):
+    table_name = "my_hive_table"
+
+    table_properties = [
+        repo.TableProperty(repo.DataAgreementType.SCHEMA_VERSION, "0.0.1", "my_namespace")
+    ]
+
+    def after_initialise(self):
+        self.create_as_unmanaged_delta_table()
+
+    def schema_as_dict(self):
+        return {'fields': [
+            {'metadata': {}, 'name': 'id', 'nullable': True, 'type': 'string'},
+            {'metadata': {}, 'name': 'name', 'nullable': True, 'type': 'string'},
+            {'metadata': {}, 'name': 'pythons', 'nullable': True, 'type': {
+                'containsNull': True,
+                'elementType': {'fields': [
+                    {'metadata': {},
+                     'name': 'id',
+                     'nullable': True,
+                     'type': 'string'}],
+                    'type': 'struct'},
+                'type': 'array'}},
+            {'metadata': {}, 'name': 'season', 'nullable': True, 'type': 'string'}], 'type': 'struct'}
+
+
+my_table = MyHiveTable(db=db)  # Executes the after_initialise callback with invokes the create_as_unmanaged_delta_table fn  
+```
+
+
+
+
 
 ## Util Module
 

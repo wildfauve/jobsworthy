@@ -7,38 +7,104 @@ from jobsworthy.repo import hive_repo
 from jobsworthy.util import monad
 from . import value, model_errors
 
-class StreamWriterMode(Enum):
-    APPEND = 'try_write_stream'
-    MERGE = 'stream_write_via_delta_upsert'
+
+class StreamWriteType(Enum):
+    APPEND = "try_write_stream"
+    UPSERT = "try_stream_write_via_delta_upsert"
+
+
+class StreamToPair:
+
+    def __init__(self):
+        self.stream_to_table = None
+        self.transformer = None
+        self.transformer_context = None
+        self.transformed_df = None
+        self.stream_write_type = None
+
+    def stream_to(self, table: hive_repo.HiveRepo, write_type: StreamWriteType = StreamWriteType.APPEND):
+        self.stream_to_table = table
+        self.stream_write_type = write_type
+        return self
+
+    def with_transformer(self, transformer: Callable, **kwargs):
+        self.transformer = transformer
+        self.transformer_context = kwargs
+        return self
+
+    def apply_transformer(self, input_df):
+        self.transformed_df = self.transformer(input_df, **self.transformer_context)
+
+        if not (isinstance(self.transformed_df, dataframe.DataFrame) and self.transformed_df.isStreaming):
+            return monad.Left(model_errors.dataframe_not_streaming())
+        return monad.Right(self.transformed_df)
+
+    def run_stream(self):
+        """
+        Invokes the repo function to start and run the stream, providing the transformation df as an input.
+        The stream_write_type enum value provides the streaming write type to call on the repo, either an append
+        or an upsert.
+
+        :return:
+        """
+        return getattr(self.stream_to_table, self.stream_write_type.value)(self.transformed_df)
+
+    def await_termination(self):
+        return self.stream_to_table.await_termination()
+
+
+class MultiStreamer:
+    def __init__(self,
+                 stream_from_table: hive_repo.HiveRepo = None):
+        self.stream_id = str(uuid4())
+        self.stream_from_table = stream_from_table
+        self.runner = Runner()
+        self.stream_pairs = []
+        self.multi = True
+
+    def stream_from(self, table: hive_repo.HiveRepo):
+        self.stream_from_table = table
+        return self
+
+    def with_stream_to_pair(self, stream_to_pair: StreamToPair):
+        self.stream_pairs.append(stream_to_pair)
+        return self
+
+    def run(self) -> monad.EitherMonad:
+        result = self.runner.run(self)
+        if result.is_left():
+            return monad.Left(result.error)
+        return monad.Right(self)
+
 
 class Streamer:
-    default_stream_writer_op = StreamWriterMode.APPEND
 
     def __init__(self,
                  stream_from_table: hive_repo.HiveRepo = None,
                  stream_from_to: hive_repo.HiveRepo = None,
                  transformer: Callable = None,
                  transformer_context: Dict = None,
-                 stream_write_op: StreamWriterMode = None):
+                 partition_with: Tuple = None):
         self.stream_id = str(uuid4())
         self.runner = Runner()
         self.stream_to_table = stream_from_to
         self.stream_from_table = stream_from_table
         self.transformer = transformer
         self.transformer_context = transformer_context if transformer_context else dict()
-        self.stream_write_op = stream_write_op if stream_write_op else self.__class__.default_stream_writer_op
+        self.stream_write_type = None
+        self.multi = False
 
     def stream_from(self, table: hive_repo.HiveRepo):
         self.stream_from_table = table
         return self
 
-    def stream_to(self, table: hive_repo.HiveRepo, partition_columns: Tuple[str] = tuple()):
+    def stream_to(self,
+                  table: hive_repo.HiveRepo,
+                  partition_columns: Tuple[str] = tuple(),
+                  write_type: StreamWriteType = StreamWriteType.APPEND):
         self.stream_to_table = table
         self.partition_with = partition_columns
-        return self
-
-    def with_write_mode(self, write_mode: StreamWriterMode):
-        self.stream_write_op = write_mode
+        self.stream_write_type = write_type
         return self
 
     def with_transformer(self, transformer: Callable, **kwargs):
@@ -58,9 +124,9 @@ class Runner:
     def run(self, stream):
         return (self.setup_value(stream)
                 >> self.stream_initiator
-                >> self.apply_transformer
-                >> self.start_and_write_stream
-                >> self.stream_awaiter)
+                >> self.transformer_strategy
+                >> self.start_stream_strategy
+                >> self.stream_awaiter_strategy)
 
     def setup_value(self, stream):
         return monad.Right(value.StreamState(stream_configuration=stream))
@@ -72,6 +138,19 @@ class Runner:
             return monad.Left(val.replace('error', model_errors.dataframe_not_streaming()))
         return monad.Right(val.replace('streaming_input_dataframe', result))
 
+    def transformer_strategy(self, val: value.StreamState) -> monad.EitherMonad[value.StreamState]:
+        if val.stream_configuration.multi:
+            return self.apply_multi_transformers(val)
+        return self.apply_transformer(val)
+
+    def apply_multi_transformers(self, val: value.StreamState) -> monad.EitherMonad[value.StreamState]:
+        results = [pair.apply_transformer(val.streaming_input_dataframe) for pair in
+                   val.stream_configuration.stream_pairs]
+
+        if not all(map(monad.maybe_value_ok, results)):
+            monad.Left(val.replace('error', model_errors.dataframe_not_streaming()))
+        return monad.Right(val)
+
     def apply_transformer(self, val: value.StreamState) -> monad.EitherMonad[value.StreamState]:
         result = (val.stream_configuration.transformer(val.streaming_input_dataframe,
                                                        **val.stream_configuration.transformer_context))
@@ -80,11 +159,41 @@ class Runner:
             return monad.Left(val.replace('error', model_errors.dataframe_not_streaming()))
         return monad.Right(val.replace('stream_transformed_dataframe', result))
 
-    def start_and_write_stream(self, val: value.StreamState) -> monad.EitherMonad[value.StreamState]:
-        result = (getattr(val.stream_configuration.stream_to_table, val.stream_configuration.stream_write_op.value)(
-            (val.stream_transformed_dataframe)))
+    def start_stream_strategy(self, val: value.StreamState) -> monad.EitherMonad[value.StreamState]:
+        if val.stream_configuration.multi:
+            return self.start_and_run_multi_streams(val)
+        return self.start_and_run_stream(val)
+
+    def start_and_run_multi_streams(self, val: value.StreamState) -> monad.EitherMonad[value.StreamState]:
+        results = [pair.run_stream() for pair in val.stream_configuration.stream_pairs]
+
+        if not all(map(monad.maybe_value_ok, results)):
+            monad.Left(val.replace('error', monad.Left("Boom!")))
+        return monad.Right(val)
+
+    def start_and_run_stream(self, val: value.StreamState) -> monad.EitherMonad[value.StreamState]:
+        """
+        Invokes the repo function to start and run the stream, providing the transformation df as an input.
+        The stream_write_type enum value provides the streaming write type to call on the repo, either an append
+        or an upsert.
+
+        :param val:
+        :return:
+        """
+        result = (getattr(val.stream_configuration.stream_to_table, val.stream_configuration.stream_write_type.value)
+                  (val.stream_transformed_dataframe))
+
         if result.is_left():
             return monad.Left(val.replace('error', result.error()))
+        return monad.Right(val)
+
+    def stream_awaiter_strategy(self, val: value.StreamState) -> monad.EitherMonad[value.StreamState]:
+        if val.stream_configuration.multi:
+            return self.multi_stream_awaiter(val)
+        return self.stream_awaiter(val)
+
+    def multi_stream_awaiter(self, val: value.StreamState) -> monad.EitherMonad[value.StreamState]:
+        [pair.await_termination() for pair in val.stream_configuration.stream_pairs]
         return monad.Right(val)
 
     def stream_awaiter(self, val: value.StreamState) -> monad.EitherMonad[value.StreamState]:

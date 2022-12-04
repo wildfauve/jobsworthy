@@ -1,124 +1,47 @@
 import uuid
+import re
 from typing import Optional, Dict
 
 import pyspark.sql.streaming
 from pyspark.sql import dataframe
 from pyspark.sql import functions as F
 from delta.tables import *
-from pymonad.tools import curry
 
-from . import spark_db, repo_messages
+from . import spark_db, repo_messages, properties, reader_writer, sql_builder
 from jobsworthy.util import error, monad
 
-
-class TableProperty:
-    @classmethod
-    def table_property_expression(cls, set_of_props: List):
-        return ",".join([prop.format_as_expression() for prop in set_of_props])
-
-    @classmethod
-    def table_property_expression_keys(cls, set_of_props: List):
-        return ",".join([prop.format_key_as_expression for prop in set_of_props])
-
-    def __init__(self, key: str, value: str):
-        self.key = self.prepend_urn(key)
-        self.value = value
-
-    def prepend_urn(self, key):
-        if key[0:3] == 'urn':
-            return key
-        return f"urn:{key}"
-
-    def __key(self):
-        return (self.key, self.value)
-
-    def __hash__(self):
-        return hash((self.key, self.value))
-
-    def __eq__(self, other):
-        return self.__key() == other.__key()
-
-    def format_as_expression(self):
-        return f"'{self.key}'='{self.value}'"
-
-    def format_key_as_expression(self):
-        return f"'{self.key}'"
+simple_schema_extract_pattern = "^struct<(.*)>"
 
 
-class StreamFileWriter:
+class BaseRepo:
+    # Callback Hooks
 
-    def write(self, repo, stream, table_name=None):
-        table_name = table_name if table_name else repo.table_name
-        return stream.start(repo.delta_table_location(table_name))
+    def after_initialise(self):
+        pass
 
-
-class StreamHiveWriter:
-    """
-    This is the stream writer to be used on the cluster.  This capability is not supported in local test mode.
-    Use StreamFileWriter instead
-    """
-
-    def write(self, repo, stream, table_name=None):
-        if not hasattr(stream, 'table'):
-            raise repo_messages.hive_stream_writer_not_available()
-
-        table_name = table_name if table_name else repo.table_name
-        return stream.table(repo.db_table_name(table_name))
+    def after_append(self, _result):
+        pass
 
 
-class DeltaFileReader:
-    """
-    Reader which reads a delta table from a known table location (table path) using the Spark session.
-    """
-
-    def read(self, repo, table_name=None):
-        return (repo.db.session.read
-                .format('delta')
-                .load(repo.delta_table_location(table_name if table_name else repo.table_name)))
-
-
-class DeltaTableReader:
-    """
-    Delta reader using the DeltaTable class
-    """
-
-    def read(self, repo, table_name=None) -> Optional[dataframe.DataFrame]:
-        if not repo.table_exists():
-            return None
-        return self.table(repo, table_name).toDF()
-
-    #
-    def table(self, repo, table_name=None) -> DeltaTable:
-        return DeltaTable.forPath(repo.db.session,
-                                  repo.delta_table_location(table_name if table_name else repo.table_name))
-
-
-class HiveTableReader:
-    """
-    The default table Reader.  Reads data from a Hive database and table location.
-    """
-
-    def read(self, repo, table_name=None):
-        table_name = table_name if table_name else repo.table_name
-
-        if not repo.table_exists(table_name):
-            return None
-        return repo.db.session.table(repo.db_table_name(table_name))
-
-
-class HiveRepo:
+class HiveRepo(BaseRepo):
     default_stream_trigger_condition = {'once': True}
 
     def __init__(self,
                  db: spark_db.Db,
                  stream_writer=None,
-                 reader=HiveTableReader):
+                 reader=reader_writer.HiveTableReader):
         self.db = db
         self.stream_writer = stream_writer
         self.reader = reader
         self.stream_query = None
+        self.cached_table_properties = None
         if not self.name_of_table():
             raise repo_messages.table_name_not_configured()
+        self.property_manager = properties.PropertyManager(session=self.db.session,
+                                                           asserted_table_properties=self.asserted_table_properties(),
+                                                           db_table_name=self.db_table_name())
+
+        self.after_initialise()  # callback Hook
 
     #
     # Table Properties
@@ -144,6 +67,12 @@ class HiveRepo:
     def asserted_table_properties(self):
         return self.__class__.table_properties if hasattr(self, 'table_properties') else None
 
+    def has_specified_schema(self):
+        return hasattr(self, "schema_as_dict") or hasattr(self, "schema")
+
+    def table_property_expr(self):
+        return properties.TableProperty.table_property_expression(self.asserted_table_properties())
+
     #
     # Table Lifecycle Events
     #
@@ -162,11 +91,41 @@ class HiveRepo:
         return monad.monadic_try()(self.delta_table)()
 
     def create_as_unmanaged_delta_table(self):
-        return self.db.session.sql(f"""
-        CREATE TABLE {self.table_name}
-        USING DELTA 
-        LOCATION '{self.db.naming().db_table_path(self.table_name)}'
-        """)
+        if self.partition_on() and not self.has_specified_schema():
+            raise repo_messages.using_partitioning_without_a_create_schema()
+
+        self.db.session.sql(sql_builder.create_unmanaged_table(table_name=self.db_table_name(),
+                                                               col_specification=self.sql_column_specification(),
+                                                               partition_clause=self.partition_on(),
+                                                               table_property_expression=self.table_property_expr(),
+                                                               location=self.db.naming().db_table_path(self.table_name)))
+
+        self.property_manager.invalidate_table_property_cache()
+
+    def column_specification_from_schema(self):
+        if not self.has_specified_schema():
+            raise repo_messages.no_schema_defined()
+        return f"( {self.sql_column_specification()} )"
+
+    def sql_column_specification(self) -> str:
+        if not self.has_specified_schema():
+            return None
+        name_type_cols = (re.match(simple_schema_extract_pattern, self.schema_as_struct().simpleString())
+                          .group(1)
+                          .split(","))
+        return ", ".join([col_spec.replace(":", " ", 1) for col_spec in name_type_cols])
+
+    def determine_schema_to_use_for_df(self, schema_from_argument=None):
+        if schema_from_argument:
+            return schema_from_argument
+
+        if not self.has_specified_schema():
+            raise repo_messages.no_schema_provided_on_create_df()
+
+        return self.schema_as_struct()
+
+    def schema_as_struct(self):
+        return self.table_schema() if self.table_schema() else F.StructType().fromJson(self.schema_as_dict())
 
     def drop_table(self):
         """
@@ -183,7 +142,7 @@ class HiveRepo:
         :return:
         """
         dropped_table = table_to_drop if table_to_drop else self.table_name
-        self.db.session.sql(f"DROP TABLE IF EXISTS {self.db_table_name(dropped_table)}")
+        self.db.session.sql(sql_builder.drop_table(self.db_table_name(dropped_table)))
         return self
 
     def drop_temp_table(self):
@@ -199,10 +158,10 @@ class HiveRepo:
     def delta_read(self) -> Optional[dataframe.DataFrame]:
         if not self.table_exists():
             return None
-        return DeltaTableReader().read(self, self.table_name)
+        return reader_writer.DeltaTableReader().read(self, self.table_name)
 
     def delta_table(self, table_name=None) -> DeltaTable:
-        return DeltaTableReader().table(self, table_name if table_name else self.table_name)
+        return reader_writer.DeltaTableReader().table(self, table_name if table_name else self.table_name)
 
     def read(self, target_table_name: str = None) -> Optional[dataframe.DataFrame]:
         return self.reader().read(self, target_table_name)
@@ -219,14 +178,7 @@ class HiveRepo:
     #
     def create_df(self, data, schema=None):
         return self.db.session.createDataFrame(data=data,
-                                               schema=self.determine_schema_to_use(schema))
-
-    def determine_schema_to_use(self, schema_from_argument=None):
-        if schema_from_argument:
-            return schema_from_argument
-        if self.table_schema():
-            return self.table_schema()
-        raise repo_messages.no_schema_provided_on_create_df()
+                                               schema=self.determine_schema_to_use_for_df(schema))
 
     @monad.monadic_try(error_cls=error.RepoWriteError)
     def try_write_append(self, df):
@@ -242,7 +194,7 @@ class HiveRepo:
                   .partitionBy(self.partition_on())
                   .mode("append")
                   .saveAsTable(self.db_table_name()))
-        self.merge_table_properties()
+        self.after_append(result)  # callback Hook
         return result
 
     @monad.monadic_try(error_cls=error.RepoWriteError)
@@ -335,6 +287,12 @@ class HiveRepo:
     #                           partition_pruning_col: str = None,
     #                           partition_cols: tuple = tuple()):
     #     return DeltaStreamUpserter(self, partition_pruning_col, partition_cols).execute(stream)
+
+    @monad.monadic_try(error_cls=error.RepoWriteError)
+    def try_stream_write_via_delta_upsert(self,
+                                          stream,
+                                          trigger: Dict = None):
+        return self.stream_write_via_delta_upsert(stream, trigger)
 
     def stream_write_via_delta_upsert(self,
                                       stream,
@@ -432,88 +390,6 @@ class HiveRepo:
             raise repo_messages.delta_location_configured_incorrectly()
         return self.db.naming().delta_table_location(table_name if table_name else self.table_name)
 
-    #
-    # Table Property Functions
-    #
-    def merge_table_properties(self):
-        if not self.asserted_table_properties():
-            return self
-        set_on_table = set(self.urn_table_properties())
 
-        self.add_to_table_properties(set(self.asserted_table_properties()) - set_on_table)
-        self.remove_from_table_properties(set_on_table - set(self.asserted_table_properties()))
-        return self
-
-    def urn_table_properties(self) -> List[TableProperty]:
-        return [TableProperty(prop.key, prop.value) for prop in (self.get_table_properties()
-                                                                 .filter(F.col('key').startswith('urn'))
-                                                                 .select(F.col('key'), F.col('value'))
-                                                                 .collect())]
-
-    def get_table_properties(self):
-        return self.db.session.sql(f"SHOW TBLPROPERTIES {self.db_table_name()}")
-
-    def add_to_table_properties(self, to_add: List[TableProperty]):
-        if not to_add:
-            return self
-        self.db.session.sql(
-            f"alter table {self.db_table_name()} set tblproperties({TableProperty.table_property_expression(to_add)})")
-        return self
-
-    def remove_from_table_properties(self, to_remove: List[TableProperty]):
-        if not to_remove:
-            return self
-        self.db.session.sql(
-            f"alter table {self.db_table_name()} unset tblproperties({TableProperty.table_property_expression_keys(to_remove)})")
-        return self
-
-    # def __del__(self):
-    #     if hasattr(self, "temp_table_name") or self.__class__.temp_table_name:
-    #         self.clear_temp_storage()
-
-
-class DeltaStreamUpserter:
-    class TemporaryStreamDumpRepo(HiveRepo):
-        table_name = "__temp__"
-
-    def __init__(self, repo: HiveRepo, partition_pruning_col: str = None):
-        self.repo = repo
-        self.partition_pruning_col = partition_pruning_col
-        self.temp_id = str(uuid.uuid4()).replace("-", "")
-        self.temp_repo = self.TemporaryStreamDumpRepo(db=self.repo.db,
-                                                      reader=DeltaFileReader,
-                                                      stream_writer=StreamFileWriter)
-
-    def execute(self, stream) -> monad.EitherMonad[DataFrame]:
-        result = (monad.Right(stream)
-                  >> self.drop_table_by_name
-                  >> self.stream_to_temp
-                  >> self.await_termination
-                  >> self.read_temp
-                  >> self.upsert
-                  >> self.drop_table_by_name)
-        return result
-
-    def drop_table_by_name(self, stream) -> monad.EitherMonad:
-        self.repo.drop_table_by_name(self.temp_table_name(self.temp_repo.table_name))
-        return monad.Right(stream)
-
-    def stream_to_temp(self, stream) -> monad.EitherMonad:
-        self.stream_query = self.temp_repo.write_stream_to_table(stream,
-                                                                 self.temp_table_name(self.temp_repo.table_name),
-                                                                 self.repo.__class__.default_stream_trigger_condition)
-        return monad.Right(self.stream_query)
-
-    def await_termination(self, stream_query) -> monad.EitherMonad[pyspark.sql.streaming.StreamingQuery]:
-        self.temp_repo.await_termination(stream_query)
-        return monad.Right(stream_query)
-
-    def read_temp(self, _stream_query) -> monad.EitherMonad[DataFrame]:
-        return monad.Right(self.temp_repo.read(self.temp_table_name(self.temp_repo.table_name)))
-
-    def upsert(self, df: DataFrame) -> monad.EitherMonad[DataFrame]:
-        self.repo.upsert(df)
-        return monad.Right(df)
-
-    def temp_table_name(self, temp_prefix):
-        return f"{temp_prefix}{self.repo.table_name}__{self.temp_id}"
+class TemporaryStreamDumpRepo(HiveRepo):
+    table_name = "__temp__"

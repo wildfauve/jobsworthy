@@ -4,8 +4,8 @@ from tests.shared import *
 from tests.shared import config_for_testing
 
 
-def test_reads_secret_from_scope(test_container):
-    provider = secrets.Secrets(session=test_container.session,
+def test_reads_secret_from_scope(local_container):
+    provider = secrets.Secrets(session=local_container.session,
                                config=job_config(),
                                secrets_provider=dbutils_wrapper()).clear_cache()
 
@@ -16,12 +16,12 @@ def test_reads_secret_from_scope(test_container):
     assert the_secret.value == "from: my_domain.my_data_product_name/my_secret generates a-secret"
 
 
-def test_reads_secret_from_alternate_scope(test_container):
+def test_reads_secret_from_alternate_scope(local_container):
     test_secrets = {"my_domain.my_data_product_name": {'my_secret': 'a-secret'},
                     "alt_scope": {'my_secret': 'b-secret'}}
 
     provider = secrets.Secrets(
-        session=test_container.session,
+        session=local_container.session,
         config=job_config(),
         secrets_provider=dbutils_wrapper(test_secrets)).clear_cache()
 
@@ -33,12 +33,12 @@ def test_reads_secret_from_alternate_scope(test_container):
     assert alt_secret.value == "b-secret"
 
 
-def test_cache_for_non_default_scopes(test_container):
+def test_cache_for_non_default_scopes(local_container):
     test_secrets = {"my_domain.my_data_product_name": {'my_secret': 'a-secret'},
                     "alt_scope": {'my_secret': 'b-secret'}}
 
     provider = secrets.Secrets(
-        session=test_container.session,
+        session=local_container.session,
         config=job_config(),
         secrets_provider=dbutils_wrapper(test_secrets)).clear_cache()
 
@@ -49,8 +49,8 @@ def test_cache_for_non_default_scopes(test_container):
                                'alt_scope': {'my_secret': 'b-secret'}}
 
 
-def test_caches_secret(test_container):
-    provider = secrets.Secrets(session=test_container.session,
+def test_caches_secret(local_container):
+    provider = secrets.Secrets(session=local_container.session,
                                config=job_config(),
                                secrets_provider=dbutils_wrapper()).clear_cache()
 
@@ -62,13 +62,13 @@ def test_caches_secret(test_container):
     }
 
 
-def test_with_loaded_secrets(test_container):
+def test_with_loaded_secrets(local_container):
     test_secrets = {"my_domain.my_data_product_name":
                         {'my_secret': 'a-secret'}
                     }
 
     provider = secrets.Secrets(
-        session=test_container.session,
+        session=local_container.session,
         config=job_config(),
         secrets_provider=dbutils_wrapper(test_secrets)).clear_cache()
 
@@ -77,12 +77,12 @@ def test_with_loaded_secrets(test_container):
     assert the_secret.value == "a-secret"
 
 
-def test_secret_not_available(test_container):
+def test_secret_not_available(local_container):
     test_secrets = {"my_domain.my_data_product_name":
                         {'my_secret': 'a-secret'}
                     }
 
-    provider = secrets.Secrets(session=test_container.session,
+    provider = secrets.Secrets(session=local_container.session,
                                config=job_config(),
                                secrets_provider=dbutils_wrapper(test_secrets)).clear_cache()
 
@@ -93,13 +93,13 @@ def test_secret_not_available(test_container):
     assert the_secret.error().message == "Secret does not exist with scope: my_domain.my_data_product_name and key: not_a_secret_key"
 
 
-def test_override_scope(test_container):
+def test_override_scope(local_container):
     test_secrets = {
         "overridden_scope":
             {'my_secret': 'a-secret'}
     }
 
-    provider = secrets.Secrets(session=test_container.session,
+    provider = secrets.Secrets(session=local_container.session,
                                config=job_config(),
                                secrets_provider=dbutils_wrapper(test_secrets),
                                default_scope_name="overridden_scope").clear_cache()
@@ -109,8 +109,8 @@ def test_override_scope(test_container):
     assert the_secret.value == "a-secret"
 
 
-def test_invalid_provider(test_container):
-    result = secrets.Secrets(session=test_container.session,
+def test_invalid_provider(local_container):
+    result = secrets.Secrets(session=local_container.session,
                              config=job_config(),
                              secrets_provider=databricks.DatabricksUtilMockWrapper).get_secret(
         "blah")
@@ -118,7 +118,7 @@ def test_invalid_provider(test_container):
     assert result.is_left()
 
 
-def test_session_initialised(test_container):
+def test_session_initialised(local_container):
     from pyspark.sql import session
     from tests.shared import dependencies as deps
 
@@ -129,7 +129,7 @@ def test_session_initialised(test_container):
     assert isinstance(deps.secrets_provider().utils().session, session.SparkSession)
 
 
-def test_client_credentials(test_container):
+def test_client_credentials(local_container):
     test_secrets = {
         "my_domain.my_data_product_name":
             {'client_id': 'my_client_id', 'client_secret': "my_client_secret", "tenant_id": "my_tenant_id"}
@@ -139,7 +139,7 @@ def test_client_credentials(test_container):
         def __init__(self, *args):
             self.args = args
 
-    provider = secrets.Secrets(session=test_container.session,
+    provider = secrets.Secrets(session=local_container.session,
                                config=job_config(),
                                secrets_provider=dbutils_wrapper(test_secrets),
                                client_credentials_provider=MockClientCredentialsProvider).clear_cache()

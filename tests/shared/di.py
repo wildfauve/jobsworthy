@@ -35,7 +35,7 @@ class LocalContainer(containers.DeclarativeContainer):
 
 
 @pytest.fixture
-def test_container():
+def local_container():
     cosmos_fixture.MockCosmosDBStreamReader.db_table_name = (
         f"{config_for_testing.DATABASE_NAME}.cosmosmock"
     )

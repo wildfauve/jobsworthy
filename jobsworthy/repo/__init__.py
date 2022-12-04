@@ -8,12 +8,20 @@ from .spark_db import (
 
 from .hive_repo import (
     HiveRepo,
-    TableProperty,
+)
+
+from .reader_writer import (
     StreamFileWriter,
     StreamHiveWriter,
     DeltaFileReader,
     DeltaTableReader,
     HiveTableReader
+)
+
+from .properties import (
+    TableProperty,
+    DataAgreementType,
+    PropertyManager
 )
 
 

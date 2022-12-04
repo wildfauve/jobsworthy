@@ -19,7 +19,10 @@ messages = {
     hive_repo.StreamFileWriter instead.""",
 
     'no_schema_provided_on_create_df': """Called create_df without either providing a schema or implementing the 
-    schema() function.""",
+    schema or schema_as_dict.""",
+
+    'no_schema_defined': """Attempting to build the schema but no schema is provided.  Implement the data property
+    schema or the instance method schema_as_dict""",
 
     'checkpoint_root_not_supported': """Jobsworthy: use of checkpoint_root not supported since version 0.4.0.  
     Use db_path_override_for_checkpoint instead.""",
@@ -31,8 +34,12 @@ messages = {
     "db_path_not_configured": """Jobsworth: db path not configured.  Set db_file_system_path_root on the HIVE config""",
 
     "domain_data_product_not_configured": """When using the DbNamingConventionDomainBased, the domain_name and the 
-    data_product_name must be set on the job config."""
+    data_product_name must be set on the job config.""",
 
+    "using_partitioning_without_a_create_schema": """Attempted to create an unmanaged table with partitions, but
+    no schema was provided. Implement repo.schema_as_dict().""",
+
+    "namespace_not_provided": """When configuring a property using DataAgreementType, a namespace must be provided"""
 }
 
 
@@ -68,8 +75,13 @@ def no_schema_provided_on_create_df():
     return error.RepoWriteError(messages[no_schema_provided_on_create_df.__name__])
 
 
+def no_schema_defined():
+    return error.RepoConfigError(messages[no_schema_defined.__name__])
+
+
 def delta_location_configured_incorrectly():
     return error.RepoConfigError(messages[delta_location_configured_incorrectly.__name__])
+
 
 def db_path_not_configured():
     return error.RepoConfigError(messages[db_path_not_configured.__name__])
@@ -77,3 +89,11 @@ def db_path_not_configured():
 
 def domain_data_product_not_configured():
     return error.RepoConfigError(messages[domain_data_product_not_configured.__name__])
+
+
+def using_partitioning_without_a_create_schema():
+    return error.RepoConfigError(messages[using_partitioning_without_a_create_schema.__name__])
+
+
+def namespace_not_provided():
+    return error.RepoConfigError(messages[namespace_not_provided.__name__])

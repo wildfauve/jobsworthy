@@ -9,8 +9,7 @@ def normalise(token):
         return token
     return normalise_pattern.sub('_', token).lower()
 
-
-class JobConfig:
+class Config:
     def __init__(self,
                  domain_name: str = None,
                  data_product_name: str = None,
@@ -41,6 +40,10 @@ class JobConfig:
     def running_in_test(self):
         self.is_running_in_test = True
         return self
+
+
+class JobConfig(Config):
+    pass
 
 
 

@@ -45,8 +45,8 @@ def test_partitioned_delta_upsert_with_new_rows(test_db):
 
     expected_rows = set([('https://example.nz/montyPython/sketches/thePiranhaBrothers', 'The Piranha Brothers'),
                          ('https://example.nz/montyPython/sketches/theSpanishInquisition', 'The Spanish Inquisition'),
-                         ('https://example.nz/montyPython/sketches/ericTheHalfBee', 'The Piranha Brothers'),
-                         ('https://example.nz/montyPython/sketches/theCheeseShop', 'The Spanish Inquisition')])
+                         ('https://example.nz/montyPython/sketches/ericTheHalfBee', 'Eric the Half Bee'),
+                         ('https://example.nz/montyPython/sketches/theCheeseShop', 'The Cheese Shop')])
 
     assert sketches == expected_rows
 

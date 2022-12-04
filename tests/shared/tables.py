@@ -9,11 +9,61 @@ class MyHiveTable(repo.HiveRepo):
     pruning_column = 'name'
 
     table_properties = [
-        repo.TableProperty("my_namespace:spark:table:schema:version", "0.0.1")
+        repo.TableProperty(repo.DataAgreementType.SCHEMA_VERSION, "0.0.1", "my_namespace")
     ]
+
+    def after_append(self, _result):
+        self.property_manager.merge_table_properties()
 
     def identity_merge_condition(self, name_of_baseline, update_name):
         return f"{name_of_baseline}.id = {update_name}.id"
+
+    def schema_as_dict(self):
+        return {'fields': [
+            {'metadata': {}, 'name': 'id', 'nullable': True, 'type': 'string'},
+            {'metadata': {}, 'name': 'name', 'nullable': True, 'type': 'string'},
+            {'metadata': {}, 'name': 'pythons', 'nullable': True, 'type': {
+                'containsNull': True,
+                'elementType': {'fields': [
+                    {'metadata': {},
+                     'name': 'id',
+                     'nullable': True,
+                     'type': 'string'}],
+                    'type': 'struct'},
+                'type': 'array'}},
+            {'metadata': {}, 'name': 'season', 'nullable': True, 'type': 'string'}], 'type': 'struct'}
+
+
+class MyHiveTableWithCallbacks(repo.HiveRepo):
+    table_name = "my_hive_table"
+
+    table_properties = [
+        repo.TableProperty(repo.DataAgreementType.SCHEMA_VERSION, "0.0.1", "my_namespace"),
+        repo.TableProperty(repo.DataAgreementType.PARTITION_COLUMNS, "identity", "my_namespace"),
+        repo.TableProperty(repo.DataAgreementType.PRUNE_COLUMN, "identity", "my_namespace"),
+        repo.TableProperty(repo.DataAgreementType.PORT, "superTable", "my_namespace"),
+        repo.TableProperty(repo.DataAgreementType.UPDATE_FREQUENCY, "daily", "my_namespace"),
+        repo.TableProperty(repo.DataAgreementType.DESCRIPTION, "Some description", "my_namespace"),
+
+    ]
+
+    def after_initialise(self):
+        self.create_as_unmanaged_delta_table()
+
+    def schema_as_dict(self):
+        return {'fields': [
+            {'metadata': {}, 'name': 'id', 'nullable': True, 'type': 'string'},
+            {'metadata': {}, 'name': 'name', 'nullable': True, 'type': 'string'},
+            {'metadata': {}, 'name': 'pythons', 'nullable': True, 'type': {
+                'containsNull': True,
+                'elementType': {'fields': [
+                    {'metadata': {},
+                     'name': 'id',
+                     'nullable': True,
+                     'type': 'string'}],
+                    'type': 'struct'},
+                'type': 'array'}},
+            {'metadata': {}, 'name': 'season', 'nullable': True, 'type': 'string'}], 'type': 'struct'}
 
 
 class MyHiveTableWithUpdataAndDeleteCondition(repo.HiveRepo):
@@ -54,6 +104,24 @@ class MyHiveTable2(repo.HiveRepo):
     partition_columns = ("name",)
 
     pruning_column = 'name'
+
+    schema = T.StructType(
+        [
+            T.StructField('id', T.StringType(), True),
+            T.StructField('name', T.StringType(), True),
+            T.StructField('pythons',
+                          T.ArrayType(T.StructType([T.StructField('id', T.StringType(), True)]), True),
+                          True),
+            T.StructField('season', T.StringType(), True),
+            T.StructField('onStream', T.StringType(), False)
+        ])
+
+    def identity_merge_condition(self, name_of_baseline, update_name):
+        return f"{name_of_baseline}.id = {update_name}.id"
+
+
+class MyHiveTable3(repo.HiveRepo):
+    table_name = "my_hive_table_3"
 
     schema = T.StructType(
         [
