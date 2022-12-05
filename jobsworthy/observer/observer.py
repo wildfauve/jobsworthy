@@ -11,7 +11,7 @@ from jobsworthy.observer import repo
 from jobsworthy import repo as hive_repo
 from jobsworthy.util import monad, validate, logger
 from jobsworthy.observer.domain import metrics
-from jobsworthy.structure import structure
+from jobsworthy import structure as S
 
 
 class Observable:
@@ -369,7 +369,7 @@ class ObserverHiveEmitter(Emitter):
         return [row.build_ordered_row_values() for row in self.runs_to_rows(table, runs)]
 
     def all_rows_ok(self, rows):
-        return all(map(structure.all_cells_ok, rows))
+        return all(map(S.all_cells_ok, rows))
 
     def create_df(self, table, runs: List[Run]):
         return self.repo.create_df(self.build_rows(table, runs), table.hive_schema())

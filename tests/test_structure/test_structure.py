@@ -2,21 +2,21 @@ import pytest
 import json
 
 from jobsworthy.util import monad, error
-from jobsworthy.structure import structure, schema_util
+from jobsworthy import structure as S
 
 
 def test_cell_name_from_vocab():
-    cell = structure.Cell(column=column1(),
-                          identity='id',
-                          props={'at_id': 1, 'at_type': "t", 'label': "one"})
+    cell = S.Cell(column=column1(),
+                  identity='id',
+                  props={'at_id': 1, 'at_type': "t", 'label': "one"})
 
     assert cell.column_name() == "column_one"
 
 
 def test_cell_build():
-    cell = structure.Cell(column=column1(),
-                          identity='id',
-                          props={'at_id': 1, 'at_type': "t", 'label': "one"})
+    cell = S.Cell(column=column1(),
+                  identity='id',
+                  props={'at_id': 1, 'at_type': "t", 'label': "one"})
 
     assert cell.build() == (1, 't', 'one')
 
@@ -34,27 +34,27 @@ def test_build_a_table_using_injected_columns():
 
 
 def test_has_parent():
-    root_parent = structure.RootParent(meta="some-meta", tracer=generate_root_parent())
-    cell1 = structure.Cell(column=column1(),
-                           identity='id1',
-                           props={'at_id': 1, 'at_type': "t", 'label': "one"}).has_parent(root_parent)
+    root_parent = S.RootParent(meta="some-meta", tracer=generate_root_parent())
+    cell1 = S.Cell(column=column1(),
+                   identity='id1',
+                   props={'at_id': 1, 'at_type': "t", 'label': "one"}).has_parent(root_parent)
 
-    cell2 = structure.Cell(column=column1(),
-                           identity='id2',
-                           props={'at_id': 2, 'at_type': "t", 'label': "two"}).has_parent(cell1)
+    cell2 = S.Cell(column=column1(),
+                   identity='id2',
+                   props={'at_id': 2, 'at_type': "t", 'label': "two"}).has_parent(cell1)
 
     assert cell2.parent.meta_props() == cell1.meta_props()
 
 
 def test_cell_recursively_returns_parent_meta():
-    root_parent = structure.RootParent(meta="some-meta", tracer=generate_root_parent())
-    cell1 = structure.Cell(column=column1(),
-                           identity='id1',
-                           props={'at_id': 1, 'at_type': "t", 'label': "one"}).has_parent(root_parent)
+    root_parent = S.RootParent(meta="some-meta", tracer=generate_root_parent())
+    cell1 = S.Cell(column=column1(),
+                   identity='id1',
+                   props={'at_id': 1, 'at_type': "t", 'label': "one"}).has_parent(root_parent)
 
-    cell2 = structure.Cell(column=column1(),
-                           identity='id2',
-                           props={'at_id': 2, 'at_type': "t", 'label': "two"}).has_parent(cell1)
+    cell2 = S.Cell(column=column1(),
+                   identity='id2',
+                   props={'at_id': 2, 'at_type': "t", 'label': "two"}).has_parent(cell1)
 
     expected_meta = {'column_one': {'identity': 'id1'}, '__RootMeta__': {'identity': 'some-meta', 'lineage_id': 't1'}}
 
@@ -62,9 +62,9 @@ def test_cell_recursively_returns_parent_meta():
 
 
 def test_cell_with_no_parent_returns_empty_meta():
-    cell1 = structure.Cell(column=column1(),
-                           identity='id',
-                           props={'at_id': 1, 'at_type': "t", 'label': "one"})
+    cell1 = S.Cell(column=column1(),
+                   identity='id',
+                   props={'at_id': 1, 'at_type': "t", 'label': "one"})
     assert not cell1.parent
     assert cell1.parents_meta_props() == {}
 
@@ -183,7 +183,7 @@ def test_builds_a_row_as_exception():
                                                         props={'at_id': 10, 'at_type': "t", 'label': "r1c1"})
 
     expected_row = (
-    '{"column_one": {"at_id": 10, "at_type": "t", "label": "r1c1"}, "validationErrors": {"at_id": ["null value not allowed"], "at_type": ["required field"], "label": ["null value not allowed"]}}',)
+        '{"column_one": {"at_id": 10, "at_type": "t", "label": "r1c1"}, "validationErrors": {"at_id": ["null value not allowed"], "at_type": ["required field"], "label": ["null value not allowed"]}}',)
 
     assert row1.build_ordered_row_values_as_exception() == expected_row
 
@@ -209,7 +209,7 @@ def generate_root_parent():
 
 
 def table_using_factory():
-    table = structure.Table(vocab=vocab())
+    table = S.Table(vocab=vocab())
     table.column_factory(vocab_term="columns.column1",
                          struct_fn=id_type_label_struct,
                          validator=success_validator,
@@ -224,7 +224,7 @@ def table_using_factory():
 
 
 def table_with_errors():
-    table = structure.Table(vocab=vocab())
+    table = S.Table(vocab=vocab())
     table.column_factory(vocab_term="columns.column1",
                          struct_fn=id_type_label_struct,
                          validator=failure_validator,
@@ -234,7 +234,7 @@ def table_with_errors():
 
 
 def table_with_injected_columns():
-    return structure.Table(vocab=vocab(), columns=[column1()])
+    return S.Table(vocab=vocab(), columns=[column1()])
 
 
 def vocab():
@@ -251,23 +251,23 @@ def vocab():
 
 
 def column1():
-    return structure.Column(vocab_term="columns.column1",
-                            vocab=vocab(),
-                            struct_fn=id_type_label_struct,
-                            validator=success_validator,
-                            cell_builder=id_type_label_builder)
+    return S.Column(vocab_term="columns.column1",
+                    vocab=vocab(),
+                    struct_fn=id_type_label_struct,
+                    validator=success_validator,
+                    cell_builder=id_type_label_builder)
 
 
 def column2():
-    return structure.Column(vocab_term="columns.column2",
-                            vocab=vocab(),
-                            struct_fn=id_type_label_struct,
-                            validator=monad_success_validator,
-                            cell_builder=id_type_label_builder)
+    return S.Column(vocab_term="columns.column2",
+                    vocab=vocab(),
+                    struct_fn=id_type_label_struct,
+                    validator=monad_success_validator,
+                    cell_builder=id_type_label_builder)
 
 
 def id_type_label_struct(term, vocab):
-    return schema_util.build_struct_field(term, vocab, schema_util.type_id_label_struct, nullable=False)
+    return S.build_struct_field(term, vocab, S.type_id_label_struct, nullable=False)
 
 
 def success_validator(_cell):

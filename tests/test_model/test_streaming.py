@@ -132,8 +132,8 @@ def test_multi_streamer_with_2_streams(test_db, from_table, to_table, alternate_
     table_2_df = to_table.read()
     table_3_df = alternate_to_table.read()
 
-    assert table_2_df.columns == ['id', 'name', 'pythons', 'season', 'onStream']
-    assert table_3_df.columns == ['id', 'name', 'pythons', 'season', 'alternateOnStream']
+    assert table_2_df.columns == ['id', 'isDeleted', 'name', 'pythons', 'season', 'onStream']
+    assert table_3_df.columns == ['id', 'isDeleted', 'name', 'pythons', 'season', 'alternateOnStream']
 
 def test_multi_streamer_with_2_streams_upsert_append(test_db, from_table, to_table, alternate_to_table):
     from_table.write_append(tables.my_table_df(test_db))

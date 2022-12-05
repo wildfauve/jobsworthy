@@ -1,4 +1,4 @@
-from jobsworthy.structure import structure as S
+from jobsworthy import structure as S
 from . import vocab, schema
 
 struct_fn = schema.inputs_collection,
