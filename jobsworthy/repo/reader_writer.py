@@ -9,9 +9,14 @@ from . import repo_messages, hive_repo
 
 class StreamFileWriter:
 
-    def write(self, repo, stream, table_name=None):
+    def write(self, repo, stream: streaming.DataStreamWriter, table_name=None):
         table_name = table_name if table_name else repo.table_name
         return stream.start(repo.delta_table_location(table_name))
+
+class StreamStarter:
+
+    def write(self, stream: streaming.DataStreamWriter):
+        return stream.start()
 
 
 class StreamHiveWriter:
@@ -20,7 +25,7 @@ class StreamHiveWriter:
     Use StreamFileWriter instead
     """
 
-    def write(self, repo, stream, table_name=None):
+    def write(self, repo, stream: streaming.DataStreamWriter, table_name=None):
         if not hasattr(stream, 'table'):
             raise repo_messages.hive_stream_writer_not_available()
 
@@ -111,3 +116,16 @@ class DeltaStreamUpserter:
 
     def temp_table_name(self, temp_prefix):
         return f"{temp_prefix}{self.repo.table_name}__{self.temp_id}"
+
+
+class StreamAwaiter:
+
+    def await_termination(self,
+                          stream_query: streaming.StreamingQuery = None,
+                          other_stream_query:streaming.StreamingQuery = None):
+        target_stream = other_stream_query if other_stream_query else stream_query
+        if not target_stream:
+            return None
+
+        target_stream.awaitTermination()
+        return self

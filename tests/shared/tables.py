@@ -12,7 +12,7 @@ class MyHiveTable(repo.HiveRepo):
         repo.TableProperty(repo.DataAgreementType.SCHEMA_VERSION, "0.0.1", "my_namespace")
     ]
 
-    def after_append(self, _result):
+    def after_append(self):
         self.property_manager.merge_table_properties()
 
     def identity_merge_condition(self, name_of_baseline, update_name):

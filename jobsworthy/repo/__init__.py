@@ -12,6 +12,8 @@ from .hive_repo import (
 
 from .reader_writer import (
     StreamFileWriter,
+    StreamStarter,
+    StreamAwaiter,
     StreamHiveWriter,
     DeltaFileReader,
     DeltaTableReader,

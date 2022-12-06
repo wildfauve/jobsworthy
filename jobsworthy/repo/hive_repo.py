@@ -1,6 +1,6 @@
 import uuid
 import re
-from typing import Optional, Dict
+from typing import Optional, Dict, Callable
 
 import pyspark.sql.streaming
 from pyspark.sql import dataframe
@@ -17,10 +17,16 @@ class BaseRepo:
     # Callback Hooks
 
     def after_initialise(self):
-        pass
+        ...
 
-    def after_append(self, _result):
-        pass
+    def after_append(self):
+        ...
+
+    def after_upsert(self):
+        ...
+
+    def after_stream_write_via_delta_upsert(self):
+        ...
 
 
 class HiveRepo(BaseRepo):
@@ -35,6 +41,7 @@ class HiveRepo(BaseRepo):
         self.reader = reader
         self.stream_query = None
         self.cached_table_properties = None
+        self.stream_upsert_writer = reader_writer.StreamStarter
         if not self.name_of_table():
             raise repo_messages.table_name_not_configured()
         self.property_manager = properties.PropertyManager(session=self.db.session,
@@ -98,7 +105,8 @@ class HiveRepo(BaseRepo):
                                                                col_specification=self.sql_column_specification(),
                                                                partition_clause=self.partition_on(),
                                                                table_property_expression=self.table_property_expr(),
-                                                               location=self.db.naming().db_table_path(self.table_name)))
+                                                               location=self.db.naming().db_table_path(
+                                                                   self.table_name)))
 
         self.property_manager.invalidate_table_property_cache()
 
@@ -194,7 +202,7 @@ class HiveRepo(BaseRepo):
                   .partitionBy(self.partition_on())
                   .mode("append")
                   .saveAsTable(self.db_table_name()))
-        self.after_append(result)  # callback Hook
+        self.after_append()  # callback Hook
         return result
 
     @monad.monadic_try(error_cls=error.RepoWriteError)
@@ -219,7 +227,11 @@ class HiveRepo(BaseRepo):
         if not self.table_exists():
             return self.write_append(df)
 
-        return self._perform_upsert(df, None)
+        result = self._perform_upsert(df, None)
+
+        self.after_upsert()  # Callback
+
+        return result
 
     def _perform_upsert(self, df, _batch_id=None):
         upserter = (self.delta_table().alias(self.table_name)
@@ -278,25 +290,21 @@ class HiveRepo(BaseRepo):
         self.stream_query = self._write_stream_append_only(stream,
                                                            self.associated_temporary_table(),
                                                            trigger_condition)
-        self.await_termination()
+        reader_writer.StreamAwaiter().await_termination(self.stream_query)
         df = self.read(self.temp_table_name)
         return df
-
-    # def delta_stream_upserter(self,
-    #                           stream: dataframe.DataFrame,
-    #                           partition_pruning_col: str = None,
-    #                           partition_cols: tuple = tuple()):
-    #     return DeltaStreamUpserter(self, partition_pruning_col, partition_cols).execute(stream)
 
     @monad.monadic_try(error_cls=error.RepoWriteError)
     def try_stream_write_via_delta_upsert(self,
                                           stream,
-                                          trigger: Dict = None):
-        return self.stream_write_via_delta_upsert(stream, trigger)
+                                          trigger: Dict = None,
+                                          awaiter: Callable = None):
+        return self.stream_write_via_delta_upsert(stream, trigger, awaiter)
 
     def stream_write_via_delta_upsert(self,
                                       stream,
-                                      trigger: Dict = None):
+                                      trigger: Dict = None,
+                                      awaiter: reader_writer.StreamAwaiter = None):
 
         trigger_condition = trigger if trigger else self.__class__.default_stream_trigger_condition
 
@@ -306,6 +314,12 @@ class HiveRepo(BaseRepo):
             self.stream_query = self._write_stream_append_only(stream, self.table_name, trigger_condition)
         else:
             self.stream_query = self._stream_write_upsert(stream, self.table_name, trigger_condition)
+
+        if awaiter:
+            awaiter().await_termination(self.stream_query)
+
+        self.after_stream_write_via_delta_upsert()  # Callback
+
         return self
 
     def _raise_when_not_in_stream(self, df):
@@ -334,22 +348,20 @@ class HiveRepo(BaseRepo):
                              stream,
                              table_name: str,
                              trigger_condition):
-        return self.stream_writer().write(self,
-                                          stream.writeStream
-                                          .format('delta')
-                                          .option('checkpointLocation',
-                                                  self.db.naming().checkpoint_location(table_name))
-                                          .trigger(**trigger_condition)
-                                          .foreachBatch(self._perform_upsert)
-                                          .outputMode('append'),
-                                          table_name)
+        return (stream.writeStream
+                .format('delta')
+                .option('checkpointLocation', self.db.naming().checkpoint_location(table_name))
+                .trigger(**trigger_condition)
+                .foreachBatch(self._perform_upsert)
+                .outputMode('append')
+                .start())
 
     def await_termination(self, other_stream_query=None):
-        target_stream = other_stream_query if other_stream_query else self.stream_query
-        if not target_stream:
-            return None
+        reader_writer.StreamAwaiter().await_termination(stream_query=self.stream_query,
+                                                        other_stream_query=other_stream_query)
+        return self
 
-        target_stream.awaitTermination()
+    def dont_await(self, _other_stream_query=None):
         return self
 
     #
