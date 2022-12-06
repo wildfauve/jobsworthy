@@ -15,6 +15,7 @@ from .schema_util import (
     build_string_field,
     build_long_field,
     build_struct_field,
+    build_decimal_field,
     build_array_field,
     at_type,
     at_id,

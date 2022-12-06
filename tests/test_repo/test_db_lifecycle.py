@@ -101,6 +101,6 @@ def test_json_based_schema_on_create_df(test_db):
 
     df = my_table.create_df(data)
 
-    df_schema = json.loads(df.schema.json())
+    df_schema = df.schema.jsonValue()
 
     assert my_table.schema_as_dict() == df_schema

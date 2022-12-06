@@ -97,7 +97,7 @@ def test_column_builds_schema():
                                 'type': 'string'}],
                            'type': 'struct'}}
 
-    assert json.loads(column1().schema.json())
+    assert column1().schema.jsonValue()
 
 
 def test_column_generates_exception_column():
