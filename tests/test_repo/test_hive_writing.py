@@ -1,4 +1,5 @@
 import pytest
+from pyspark.sql.utils import AnalysisException
 
 from jobsworthy import spark_job
 from jobsworthy import repo
@@ -167,6 +168,29 @@ def test_delete_condition(test_db):
     df = my_table.read()
 
     assert df.count() == 1
+
+
+def test_options_on_append(test_db):
+    my_table = tables.MyHiveTableCreatedAsManagedTable(db=test_db)
+
+    with pytest.raises(AnalysisException):
+        my_table.write_append(tables.my_table_df(test_db))
+
+    my_table.write_append(tables.my_table_df(test_db), [repo.Option.MERGE_SCHEMA])
+
+    df = my_table.read()
+
+    assert 'isDeleted' in df.columns
+
+
+def test_merge_schema_on_upsert(test_db):
+    my_table = tables.MyHiveTableCreatedAsManagedTable(db=test_db)
+
+    my_table.upsert(tables.my_table_df(test_db), [repo.Option.MERGE_SCHEMA])
+
+    df = my_table.read()
+
+    assert 'isDeleted' in df.columns
 
 
 #

@@ -1,16 +1,47 @@
-import uuid
-import re
 from typing import Optional, Dict, Callable
+from enum import Enum
+from collections import ChainMap
+from functools import partial
 
-import pyspark.sql.streaming
 from pyspark.sql import dataframe
 from pyspark.sql import functions as F
 from delta.tables import *
+from jobsworthy.util import error, monad, fn, session
 
 from . import spark_db, repo_messages, properties, reader_writer, sql_builder
-from jobsworthy.util import error, monad
 
-simple_schema_extract_pattern = "^struct<(.*)>"
+
+class Option(Enum):
+    MERGE_SCHEMA = ({'mergeSchema': 'true'}, ('spark.databricks.delta.schema.autoMerge.enabled', 'true'))
+
+    @classmethod
+    def merge_options(cls, options) -> Dict:
+        return dict(ChainMap(*[o.value[0] for o in options]))
+
+    @classmethod
+    def options_to_spark_options(cls, options) -> Optional[List[Tuple[str, str]]]:
+        """
+        Delta tables dont have an options function which would allow setting mergeSchema to true.  The Delta approach
+        is to set the spark session conf param 'spark.databricks.delta.schema.autoMerge.enabled' to 'true'.
+
+        This ONLY caters for mergeSchema option.
+
+        self.db.session.conf.set('spark.databricks.delta.schema.autoMerge.enabled', 'true')
+        :param session:
+        :param options: A collection of Option
+        :return:
+        """
+        return [opt.value[1] for opt in fn.select(lambda option: option.value[1], options)]
+
+    @classmethod
+    def options_to_spark_option_names(cls, options) -> Optional[List[Tuple[str, str]]]:
+        """
+        self.db.session.conf.set('spark.databricks.delta.schema.autoMerge.enabled', 'true')
+        :param session:
+        :param options: A collection of Option
+        :return:
+        """
+        return [opt.value[1][0] for opt in fn.select(lambda option: option.value[1], options)]
 
 
 class BaseRepo:
@@ -48,10 +79,12 @@ class HiveRepo(BaseRepo):
                                                            asserted_table_properties=self.asserted_table_properties(),
                                                            db_table_name=self.db_table_name())
 
+        self.properties = self.property_manager  # hides, a little, the class managing properties.
+
         self.after_initialise()  # callback Hook
 
     #
-    # Table Properties
+    # Table Parameters
     #
     def partition_on(self):
         return self.__class__.partition_columns if hasattr(self, 'partition_columns') else tuple()
@@ -110,18 +143,57 @@ class HiveRepo(BaseRepo):
 
         self.property_manager.invalidate_table_property_cache()
 
+    def create_as_managed_delta_table(self):
+        if self.partition_on() and not self.has_specified_schema():
+            raise repo_messages.using_partitioning_without_a_create_schema()
+
+        self.db.session.sql(sql_builder.create_managed_table(table_name=self.db_table_name(),
+                                                             col_specification=self.sql_column_specification(),
+                                                             partition_clause=self.partition_on(),
+                                                             table_property_expression=self.table_property_expr()))
+
+        self.property_manager.invalidate_table_property_cache()
+
     def column_specification_from_schema(self):
         if not self.has_specified_schema():
             raise repo_messages.no_schema_defined()
         return f"( {self.sql_column_specification()} )"
 
     def sql_column_specification(self) -> str:
+        """
+        TODO: Work out a way to suppport nested null types
+        Does not currently support applying non-null constraints to nested fields.  This is because the simpleString()
+        function on the field does not return the nullable constraint
+        :return:
+        """
         if not self.has_specified_schema():
             return None
-        name_type_cols = (re.match(simple_schema_extract_pattern, self.schema_as_struct().simpleString())
-                          .group(1)
-                          .split(","))
-        return ", ".join([col_spec.replace(":", " ", 1) for col_spec in name_type_cols])
+        fields = [self.sql_field_definition(field) for field in self.schema_as_struct()]
+
+        return ", ".join(fields)
+
+    def sql_field_definition(self, field):
+        """
+        Takes the field and generates a simple string containing name and type.  To convert to a sql specification
+        replace the ":" with sp.  Add the NOT NULL expr when  the field is declared non nullable.
+        Leve any nested struct untouched.
+        :param field:
+        :return:
+        """
+        sql_def = f"{field.simpleString().replace(':', ' ', 1)}"
+
+        # if not isinstance(field.dataType, T.StringType):
+        #     sub_type = field.dataType
+        #     sub_t_str = sub_type.simpleString()
+        #     s1 = sub_t_str[:-1]
+        #     s2 = sub_t_str[-1:]
+        #     sub_type_def = s1 + " NOT NULL" + s2
+        #     sql_def =  sql_def.replace(sub_t_str, sub_type_def)
+        #
+        # breakpoint()
+        if field.nullable:
+            return sql_def
+        return sql_def + " NOT NULL"
 
     def determine_schema_to_use_for_df(self, schema_from_argument=None):
         if schema_from_argument:
@@ -189,10 +261,10 @@ class HiveRepo(BaseRepo):
                                                schema=self.determine_schema_to_use_for_df(schema))
 
     @monad.monadic_try(error_cls=error.RepoWriteError)
-    def try_write_append(self, df):
-        return self.write_append(df)
+    def try_write_append(self, df, options: Optional[List[Option]] = []):
+        return self.write_append(df, options)
 
-    def write_append(self, df):
+    def write_append(self, df, options: Optional[List[Option]] = []):
         """
         Executes a simple append operation on a table using the provided dataframe.
         + Optionally provide a tuple of columns for partitioning the table.
@@ -200,20 +272,21 @@ class HiveRepo(BaseRepo):
         result = (df.write
                   .format(self.db.table_format())
                   .partitionBy(self.partition_on())
+                  .options(**Option.merge_options(options))
                   .mode("append")
                   .saveAsTable(self.db_table_name()))
         self.after_append()  # callback Hook
         return result
 
     @monad.monadic_try(error_cls=error.RepoWriteError)
-    def try_upsert(self, df):
+    def try_upsert(self, df, options: Optional[List[Option]] = []):
         """
         The try_upsert wraps the upsert function with a Try monad.  The result will be an Either.  A successful result
         usually returns Right(None).
         """
-        return self.upsert(df)
+        return self.upsert(df, options)
 
-    def upsert(self, df):
+    def upsert(self, df, options: Optional[List[Option]] = []):
         """
         Upsert performs either a create or a delta merge function.  The create is called when the table doesnt exist.
         Otherwise a delta merge is performed.
@@ -227,13 +300,15 @@ class HiveRepo(BaseRepo):
         if not self.table_exists():
             return self.write_append(df)
 
-        result = self._perform_upsert(df, None)
+        result = self._perform_upsert(df, None, options)
 
         self.after_upsert()  # Callback
 
         return result
 
-    def _perform_upsert(self, df, _batch_id=None):
+    def _perform_upsert(self, df, _batch_id=None, options: Optional[List[Option]] = []):
+        session.set_session_config_options(self.db.session, Option.options_to_spark_options(options))
+
         upserter = (self.delta_table().alias(self.table_name)
                     .merge(df.alias('updates'),
                            self.build_merge_condition(self.table_name, 'updates', self.prune_on()))
@@ -257,10 +332,12 @@ class HiveRepo(BaseRepo):
     # Streaming Functions
     #
     @monad.monadic_try(error_cls=error.RepoWriteError)
-    def try_write_stream(self, stream, trigger: dict = None):
-        return self.write_stream_append(stream, trigger)
+    def try_write_stream(self, stream, trigger: dict = None, options: Optional[List[Option]] = []):
+        return self.write_stream_append(stream=stream,
+                                        trigger=trigger,
+                                        options=options)
 
-    def write_stream_append(self, stream, trigger: dict = None):
+    def write_stream_append(self, stream, trigger: dict = None, options: Optional[List[Option]] = []):
         """
         Write a stream.  Provide a stream.
         + To create partition columns in the table, provide a tuple of column names, the default is no partitioning
@@ -270,7 +347,7 @@ class HiveRepo(BaseRepo):
         """
         trigger_condition = trigger if trigger else self.__class__.default_stream_trigger_condition
 
-        self.stream_query = self._write_stream_append_only(stream, self.table_name, trigger_condition)
+        self.stream_query = self._write_stream_append_only(stream, self.table_name, trigger_condition, options)
         return self
 
     def write_stream_temporary(self, stream) -> DataFrame:
@@ -298,25 +375,34 @@ class HiveRepo(BaseRepo):
     def try_stream_write_via_delta_upsert(self,
                                           stream,
                                           trigger: Dict = None,
-                                          awaiter: Callable = None):
-        return self.stream_write_via_delta_upsert(stream, trigger, awaiter)
+                                          awaiter: Callable = None,
+                                          options: Optional[List[Option]] = []):
+        return self.stream_write_via_delta_upsert(stream, trigger, awaiter, options)
 
     def stream_write_via_delta_upsert(self,
                                       stream,
                                       trigger: Dict = None,
-                                      awaiter: reader_writer.StreamAwaiter = None):
+                                      awaiter: reader_writer.StreamAwaiter = None,
+                                      options: Optional[List[Option]] = []):
 
         trigger_condition = trigger if trigger else self.__class__.default_stream_trigger_condition
 
         self._raise_when_not_in_stream(stream)
 
         if self.is_delta_table_from_path().is_left():
-            self.stream_query = self._write_stream_append_only(stream, self.table_name, trigger_condition)
+            self.stream_query = self._write_stream_append_only(stream=stream,
+                                                               table_name=self.table_name,
+                                                               trigger_condition=trigger_condition,
+                                                               options=options)
         else:
-            self.stream_query = self._stream_write_upsert(stream, self.table_name, trigger_condition)
+            self.stream_query = self._stream_write_upsert(stream=stream,
+                                                          table_name=self.table_name,
+                                                          trigger_condition=trigger_condition,
+                                                          options=options)
 
         if awaiter:
-            awaiter().await_termination(self.stream_query)
+            awaiter().await_termination(stream_query=self.stream_query,
+                                        options_for_unsetting=options)
 
         self.after_stream_write_via_delta_upsert()  # Callback
 
@@ -331,23 +417,43 @@ class HiveRepo(BaseRepo):
     def _write_stream_append_only(self,
                                   stream,
                                   table_name: str,
-                                  trigger_condition):
+                                  trigger_condition,
+                                  options: Optional[List[Option]] = []):
 
         self._raise_when_not_in_stream(stream)
 
+        opts = {**Option.merge_options(options),
+                **{'checkpointLocation': self.db.naming().checkpoint_location(table_name)}}
         return self.stream_writer().write(self,
                                           stream.writeStream
                                           .format('delta')
                                           .partitionBy(self.partition_on())
-                                          .option('checkpointLocation',
-                                                  self.db.naming().checkpoint_location(table_name))
+                                          .options(**opts)
                                           .trigger(**trigger_condition),
                                           table_name)
 
     def _stream_write_upsert(self,
                              stream,
                              table_name: str,
-                             trigger_condition):
+                             trigger_condition,
+                             options: Optional[List[Option]] = []):
+
+        """
+        When wanting to perform a schema merge (based on the option), Delta requires that the spark conf option
+        'spark.databricks.delta.schema.autoMerge.enabled' be set to 'true'.  Because of the analysis here
+        (https://medium.com/analytics-vidhya/spark-session-and-the-singleton-misconception-1aa0eb06535a) the streaming
+        session is cloned from the main spark session.  In the stream this can be obtained from the dataframe using
+        df.sparkSession.  But setting the merge option here doesnt appear to work either.  So, we're left with setting
+        the autoMerge option on the session BEFORE the session is cloned for the stream.
+        :param stream:
+        :param table_name:
+        :param trigger_condition:
+        :param options:
+        :return:
+        """
+        if options:
+            session.set_session_config_options(self.db.session, Option.options_to_spark_options(options))
+
         return (stream.writeStream
                 .format('delta')
                 .option('checkpointLocation', self.db.naming().checkpoint_location(table_name))
@@ -356,9 +462,12 @@ class HiveRepo(BaseRepo):
                 .outputMode('append')
                 .start())
 
-    def await_termination(self, other_stream_query=None):
+    def await_termination(self, other_stream_query=None, options_for_unsetting: Optional[List[Option]] = None):
         reader_writer.StreamAwaiter().await_termination(stream_query=self.stream_query,
                                                         other_stream_query=other_stream_query)
+        if options_for_unsetting:
+            session.unset_session_config_options(self.db.session,
+                                                 Option.options_to_spark_option_names(options_for_unsetting))
         return self
 
     def dont_await(self, _other_stream_query=None):

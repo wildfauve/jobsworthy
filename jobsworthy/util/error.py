@@ -39,3 +39,7 @@ class RepoWriteError(JobError):
 
 class SecretError(JobError):
     pass
+
+
+class VocabNotFound(JobError):
+    pass

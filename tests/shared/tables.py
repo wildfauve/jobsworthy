@@ -13,7 +13,7 @@ class MyHiveTable(repo.HiveRepo):
     ]
 
     def after_append(self):
-        self.property_manager.merge_table_properties()
+        self.properties.merge_table_properties()
 
     def identity_merge_condition(self, name_of_baseline, update_name):
         return f"{name_of_baseline}.id = {update_name}.id"
@@ -34,8 +34,8 @@ class MyHiveTable(repo.HiveRepo):
             {'metadata': {}, 'name': 'season', 'nullable': True, 'type': 'string'}], 'type': 'struct'}
 
 
-class MyHiveTableWithCallbacks(repo.HiveRepo):
-    table_name = "my_hive_table"
+class MyHiveTableCreatedAsManagedTable(repo.HiveRepo):
+    table_name = "my_hive_table_created_as_managed_table"
 
     table_properties = [
         repo.TableProperty(repo.DataAgreementType.SCHEMA_VERSION, "0.0.1", "my_namespace"),
@@ -49,21 +49,23 @@ class MyHiveTableWithCallbacks(repo.HiveRepo):
 
     def after_initialise(self):
         self.create_as_unmanaged_delta_table()
+        pass
+
+    def identity_merge_condition(self, name_of_baseline, update_name):
+        return f"{name_of_baseline}.id = {update_name}.id"
 
     def schema_as_dict(self):
-        return {'fields': [
-            {'metadata': {}, 'name': 'id', 'nullable': True, 'type': 'string'},
-            {'metadata': {}, 'name': 'name', 'nullable': True, 'type': 'string'},
-            {'metadata': {}, 'name': 'pythons', 'nullable': True, 'type': {
-                'containsNull': True,
-                'elementType': {'fields': [
-                    {'metadata': {},
-                     'name': 'id',
-                     'nullable': True,
-                     'type': 'string'}],
-                    'type': 'struct'},
-                'type': 'array'}},
-            {'metadata': {}, 'name': 'season', 'nullable': True, 'type': 'string'}], 'type': 'struct'}
+        return {'type': 'struct',
+                'fields': [{'name': 'id', 'type': 'string', 'nullable': True, 'metadata': {}},
+                           # {'name': 'isDeleted', 'type': 'string', 'nullable': True, 'metadata': {}},
+                           {'name': 'name', 'type': 'string', 'nullable': True, 'metadata': {}},
+                           {'name': 'pythons', 'type': {'type': 'array',
+                                                        'elementType': {'type': 'struct', 'fields': [
+                                                            {'name': 'id', 'type': 'string',
+                                                             'nullable': True, 'metadata': {}}]},
+                                                        'containsNull': True}, 'nullable': True,
+                            'metadata': {}},
+                           {'name': 'season', 'type': 'string', 'nullable': True, 'metadata': {}}]}
 
 
 class MyHiveTableWithUpdataAndDeleteCondition(repo.HiveRepo):
@@ -84,7 +86,6 @@ class MyHiveTableWithUpdataAndDeleteCondition(repo.HiveRepo):
 
     def delete_condition(self, _name_of_baseline, update_name):
         return f"{update_name}.isDeleted = true"
-
 
 
 class MyHiveTableWithoutIdentityCondition(repo.HiveRepo):
@@ -121,7 +122,11 @@ class MyHiveTable2(repo.HiveRepo):
 
 
 class MyHiveTable3(repo.HiveRepo):
-    table_name = "my_hive_table_3"
+    table_name = "my_hive_table_2"
+
+    partition_columns = ("name",)
+
+    pruning_column = 'name'
 
     schema = T.StructType(
         [
@@ -133,6 +138,9 @@ class MyHiveTable3(repo.HiveRepo):
             T.StructField('season', T.StringType(), True),
             T.StructField('onStream', T.StringType(), False)
         ])
+
+    def after_initialise(self):
+        self.create_as_managed_delta_table()
 
     def identity_merge_condition(self, name_of_baseline, update_name):
         return f"{name_of_baseline}.id = {update_name}.id"
@@ -148,6 +156,7 @@ def my_table_df(db):
 
 def my_table_df_new_rows(db):
     return db.session.read.json("tests/fixtures/table1_rows_2.json", multiLine=True, prefersDecimal=True)
+
 
 def my_table_df_deleted_rows(db):
     return db.session.read.json("tests/fixtures/table1_rows_with_delete.json", multiLine=True, prefersDecimal=True)

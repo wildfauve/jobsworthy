@@ -8,6 +8,7 @@ from .spark_db import (
 
 from .hive_repo import (
     HiveRepo,
+    Option
 )
 
 from .reader_writer import (

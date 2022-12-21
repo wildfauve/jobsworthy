@@ -29,5 +29,10 @@ from .schema_util import (
 from .vocab_util import (
     term_for,
     meta_for,
-    term_and_meta
+    term_and_meta,
+    raise_when_not_found
+)
+
+from .value import (
+    VocabDirective
 )

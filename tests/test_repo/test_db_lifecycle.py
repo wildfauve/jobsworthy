@@ -42,7 +42,7 @@ def test_table_doesnt_provide_table_name(test_db):
         tables.MyBadlyConfiguredHiveTable(db=test_db)
 
 
-def test_create_hive_table_in_db(test_db):
+def test_create_unmanaged_hive_table_in_db(test_db):
     my_table = tables.MyHiveTable(db=test_db)
 
     assert not my_table.table_exists()
@@ -52,8 +52,18 @@ def test_create_hive_table_in_db(test_db):
     assert my_table.table_exists()
 
 
+def test_create_managed_hive_table_in_db(test_db):
+    my_table = tables.MyHiveTable(db=test_db)
+
+    assert not my_table.table_exists()
+
+    my_table.create_as_managed_delta_table()
+
+    assert my_table.table_exists()
+
+
 def test_on_init_callback_create_table(test_db):
-    my_table = tables.MyHiveTableWithCallbacks(db=test_db)
+    my_table = tables.MyHiveTableCreatedAsManagedTable(db=test_db)
 
     assert my_table.table_exists()
 
@@ -78,7 +88,7 @@ def test_generates_column_specification_from_struct_based_schema(test_db):
 
     col_spec = my_table.column_specification_from_schema()
 
-    expected_col_spec = '( id string, name string, pythons array<struct<id:string>>, season string, onStream string )'
+    expected_col_spec = '( id string, name string, pythons array<struct<id:string>>, season string, onStream string NOT NULL )'
 
     assert col_spec == expected_col_spec
 

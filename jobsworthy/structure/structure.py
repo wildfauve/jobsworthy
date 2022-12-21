@@ -1,13 +1,12 @@
-from typing import Any
+from typing import Any, Callable, Dict, List, Tuple, Union
 import json
 from functools import reduce
-from typing import Callable, Dict, List, Tuple, Union
-from jobsworthy.util import fn, json_util, monad
-
-from jobsworthy.util import error
-from jobsworthy.structure import schema_util as su, vocab_util as V
 from pymonad.tools import curry
 from pyspark.sql.types import StructType
+
+from jobsworthy.util import fn, json_util, monad
+from jobsworthy.util import error
+from . import schema_util as su, vocab_util as V, value
 
 
 def default_cell_builder(cell):
@@ -36,12 +35,81 @@ class RootParent:
         return {self.column_name: {'identity': self.meta, 'lineage_id': self.tracer.trace}}
 
 
+class Vocab:
+    def __init__(self, vocab):
+        self.vocab = vocab
+
+
+class Struct:
+    def __init__(self, callback, vocab: Dict):
+        self.callback = callback
+        self.vocab = vocab
+        self.schema = None
+        self.fields = []
+
+    def string(self,
+               term,
+               nullable: bool = False):
+        self.fields.append(su.build_string_field(term, self.vocab, nullable=nullable))
+        return self
+
+    def decimal(self,
+                term,
+                decimal_type,
+                nullable: bool = False):
+        self.fields.append(su.build_decimal_field(term, self.vocab, decimal_type, nullable=nullable))
+        return self
+
+    def long(self,
+             term,
+             nullable: bool = False):
+        self.fields.append(su.build_long_field(term, self.vocab, nullable=nullable))
+        return self
+
+    def array(self,
+              term,
+              scalar_type,
+              nullable: bool = False):
+        self.fields.append(su.build_array_field(term, self.vocab, scalar_type(), nullable=nullable))
+        return self
+
+
+    def struct(self,
+               term,
+               nullable: bool = False):
+        self.term = term
+        self.nullable = nullable
+        return Struct(self.nested_struct_callback, self.vocab)
+
+    def array_struct(self,
+                     term,
+                     nullable: bool = False):
+        self.term = term
+        self.nullable = nullable
+        return Struct(self.end_array_struct, self.vocab)
+
+    def end_array_struct(self, struct_type):
+        self.fields.append(su.build_array_field(self.term, self.vocab, struct_type, self.nullable))
+        return self
+
+
+    def nested_struct_callback(self, struct_type):
+        self.fields.append(su.build_struct_field(self.term, self.vocab, struct_type, self.nullable))
+        return self
+
+    def end_struct(self):
+        return self.callback(StructType(self.fields))
+
+
+
+
 class Column:
 
     def __init__(self,
-                 vocab_term: str,
                  vocab: Dict,
-                 struct_fn: Callable,
+                 vocab_term: str = None,
+                 struct_fn: Callable = None,
+                 callback: Callable = None,
                  validator: Callable = always_valid_validator,
                  cell_builder: Callable = default_cell_builder):
         self.vocab_term = vocab_term
@@ -49,7 +117,10 @@ class Column:
         self.struct_fn = struct_fn
         self.validator = validator
         self.cell_builder = cell_builder
-        self.build_dataframe_struct_schema()
+        self.schema = None
+        self.callback = callback
+        if self.struct_fn:
+            self.build_dataframe_struct_schema()
 
     def build_dataframe_struct_schema(self):
         self.schema = self.struct_fn(self.vocab_term, self.vocab)
@@ -65,25 +136,101 @@ class Column:
                               vocab=self.vocab,
                               struct_fn=default_exception_struct_fn)
 
+    def string(self,
+               term,
+               nullable: bool = False,
+               validator: Callable = always_valid_validator,
+               cell_builder: Callable = default_cell_builder):
+        self.schema = su.build_string_field(term, self.vocab, nullable=nullable)
+        return self.callback
+
+    def decimal(self,
+                term,
+                decimal_type,
+                nullable: bool = False,
+                validator: Callable = always_valid_validator,
+                cell_builder: Callable = default_cell_builder):
+        self.schema = su.build_decimal_field(term, self.vocab, decimal_type, nullable=nullable)
+        return self.callback
+
+    def long(self,
+             term,
+             nullable: bool = False,
+             validator: Callable = always_valid_validator,
+             cell_builder: Callable = default_cell_builder):
+        self.schema = su.build_long_field(term, self.vocab, nullable=nullable)
+        return self.callback
+
+    def array(self,
+              term,
+              scalar_type,
+              nullable: bool = False,
+              validator: Callable = always_valid_validator,
+              cell_builder: Callable = default_cell_builder):
+        self.schema = su.build_array_field(term, self.vocab, scalar_type(), nullable=nullable)
+        return self.callback
+
+    def struct(self,
+               term,
+               nullable: bool = False,
+               validator: Callable = always_valid_validator,
+               cell_builder: Callable = default_cell_builder):
+        self.term = term
+        self.nullable = nullable
+        return Struct(self.end_struct, self.vocab)
+
+    def end_struct(self, struct_type):
+        self.schema = su.build_struct_field(self.term, self.vocab, struct_type, self.nullable)
+        return self.callback
+
+    def array_struct(self,
+                     term,
+                     nullable: bool = False,
+                     validator: Callable = always_valid_validator,
+                     cell_builder: Callable = default_cell_builder):
+        self.term = term
+        self.nullable = nullable
+        return Struct(self.end_array_struct, self.vocab)
+
+    def end_array_struct(self, struct_type):
+        self.schema = su.build_array_field(self.term, self.vocab, struct_type, self.nullable)
+        return self.callback
+
+
 
 class Table:
 
-    def __init__(self, columns: List[Column] = None, vocab: Dict = None):
+    def __init__(self,
+                 columns: List[Column] = None,
+                 vocab: Dict = None,
+                 vocab_directives: List[value.VocabDirective] = None):
         self.columns = columns if columns else []
-        self.vocab = vocab if vocab else {}
+        if vocab_directives:
+            self.vocab = (vocab_directives, vocab if vocab else {})
+        else:
+            self.vocab = vocab if vocab else {}
 
     def column_factory(self,
                        vocab_term: str,
                        struct_fn: Callable,
                        cell_builder: Callable = None,
                        validator: Callable = None):
-        column = Column(vocab_term=vocab_term,
-                        vocab=self.vocab,
-                        struct_fn=struct_fn,
-                        cell_builder=cell_builder,
-                        validator=validator)
-        self.columns.append(column)
-        return column
+        col = Column(vocab_term=vocab_term,
+                     vocab=self.vocab,
+                     struct_fn=struct_fn,
+                     cell_builder=cell_builder,
+                     validator=validator)
+        self.columns.append(col)
+        return col
+
+    def column(self):
+        """
+        Entrypoint for the DSL version of the schema builder.
+        :return:
+        """
+        col = Column(callback=self, vocab=self.vocab)
+        self.columns.append(col)
+        return col
 
     def hive_schema(self):
         return StructType(list(map(lambda column: column.schema, self.columns)))

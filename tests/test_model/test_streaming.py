@@ -84,7 +84,7 @@ def test_fluent_streaming_api(test_db, from_table, to_table):
     assert table_2_df.rdd.getNumPartitions() == 2
 
 
-def test_delta_merge_write_stream(test_db, from_table, to_table):
+def test_delta_append_write_stream(test_db, from_table, to_table):
     from_table.write_append(tables.my_table_df(test_db))
 
     streamer = (model.Streamer().stream_from(from_table)
@@ -94,6 +94,47 @@ def test_delta_merge_write_stream(test_db, from_table, to_table):
     result = streamer.run()
 
     assert result.is_right()
+
+
+def test_delta_merge_write_stream(test_db, from_table, to_table):
+    from_table.write_append(tables.my_table_df(test_db))
+
+    streamer = (model.Streamer().stream_from(from_table)
+                .stream_to(table=to_table, write_type=model.StreamWriteType.UPSERT)
+                .with_transformer(transform_fn))
+
+    streamer.run()
+
+    from_table.upsert(tables.my_table_df_new_rows(test_db))
+
+    result = streamer.run()
+
+    assert result.is_right()
+
+    df = to_table.read()
+
+    assert df.count() == 4
+
+
+def test_delta_merge_write_stream_with_merge_schema(test_db, from_table, alternate_to_table):
+    from_table.write_append(tables.my_table_df(test_db))
+
+    df = alternate_to_table.read()
+
+    streamer = (model.Streamer().stream_from(from_table)
+                .stream_to(table=alternate_to_table,
+                           write_type=model.StreamWriteType.UPSERT,
+                           options=[repo.Option.MERGE_SCHEMA])
+                .with_transformer(transform_fn))
+
+    result = streamer.run()
+
+    assert result.is_right()
+
+    df = alternate_to_table.read()
+
+    assert df.count() == 2
+    assert 'isDeleted' in df.columns
 
 
 def test_multi_streamer_with_1_stream(test_db, from_table, to_table):
@@ -108,10 +149,30 @@ def test_multi_streamer_with_1_stream(test_db, from_table, to_table):
 
     assert result.is_right()
 
-    table_2_df = to_table.read()
+    df = to_table.read()
 
-    assert "onStream" in table_2_df.columns
-    assert table_2_df.rdd.getNumPartitions() == 2
+    assert "onStream" in df.columns
+    assert df.rdd.getNumPartitions() == 2
+
+
+def test_multi_streamer_with_1_stream_with_options(test_db, from_table, alternate_to_table):
+    from_table.write_append(tables.my_table_df(test_db))
+
+    pairs = (model.StreamToPair().stream_to(table=alternate_to_table,
+                                            write_type=model.StreamWriteType.APPEND,
+                                            options=[repo.Option.MERGE_SCHEMA])
+             .with_transformer(transform_fn))
+
+    streamer = (model.MultiStreamer().stream_from(from_table)
+                .with_stream_to_pair(pairs))
+    result = streamer.run()
+
+    assert result.is_right()
+
+    df = alternate_to_table.read()
+
+    assert df.count() == 2
+
 
 def test_multi_streamer_with_2_streams(test_db, from_table, to_table, alternate_to_table):
     from_table.write_append(tables.my_table_df(test_db))
@@ -121,7 +182,8 @@ def test_multi_streamer_with_2_streams(test_db, from_table, to_table, alternate_
                                                                     write_type=model.StreamWriteType.APPEND)
                                      .with_transformer(transform_fn))
                 .with_stream_to_pair(model.StreamToPair().stream_to(table=alternate_to_table,
-                                                                    write_type=model.StreamWriteType.APPEND)
+                                                                    write_type=model.StreamWriteType.APPEND,
+                                                                    options=[repo.Option.MERGE_SCHEMA])
                                      .with_transformer(alternate_transform_fn))
                 )
 
@@ -133,7 +195,8 @@ def test_multi_streamer_with_2_streams(test_db, from_table, to_table, alternate_
     table_3_df = alternate_to_table.read()
 
     assert table_2_df.columns == ['id', 'isDeleted', 'name', 'pythons', 'season', 'onStream']
-    assert table_3_df.columns == ['id', 'isDeleted', 'name', 'pythons', 'season', 'alternateOnStream']
+    assert set(table_3_df.columns) == {'id', 'isDeleted', 'name', 'pythons', 'season', 'alternateOnStream'}
+
 
 def test_multi_streamer_with_2_streams_upsert_append(test_db, from_table, to_table, alternate_to_table):
     from_table.write_append(tables.my_table_df(test_db))
@@ -143,7 +206,8 @@ def test_multi_streamer_with_2_streams_upsert_append(test_db, from_table, to_tab
                                                                     write_type=model.StreamWriteType.UPSERT)
                                      .with_transformer(transform_fn))
                 .with_stream_to_pair(model.StreamToPair().stream_to(table=alternate_to_table,
-                                                                    write_type=model.StreamWriteType.APPEND)
+                                                                    write_type=model.StreamWriteType.APPEND,
+                                                                    options=[repo.Option.MERGE_SCHEMA])
                                      .with_transformer(alternate_transform_fn))
                 )
 
@@ -154,8 +218,8 @@ def test_multi_streamer_with_2_streams_upsert_append(test_db, from_table, to_tab
     table_2_df = to_table.read()
     table_3_df = alternate_to_table.read()
 
-    assert table_2_df.columns == ['id', 'isDeleted', 'name', 'pythons', 'season', 'onStream']
-    assert table_3_df.columns == ['id', 'isDeleted', 'name', 'pythons', 'season', 'alternateOnStream']
+    assert set(table_2_df.columns) == {'id', 'isDeleted', 'name', 'pythons', 'season', 'onStream'}
+    assert set(table_3_df.columns) == {'id', 'isDeleted', 'name', 'pythons', 'isDeleted', 'season', 'alternateOnStream'}
 
 
 def test_any_context_to_transformer(test_db, from_table, to_table):
@@ -196,13 +260,15 @@ def to_table(test_db):
 
 @pytest.fixture
 def alternate_to_table(test_db):
-    return tables.MyHiveTable3(db=test_db,
-                               reader=repo.DeltaFileReader,
-                               stream_writer=repo.StreamFileWriter)
+    # return tables.MyHiveTable3(db=test_db,
+    return tables.MyHiveTableCreatedAsManagedTable(db=test_db,
+                                                   reader=repo.DeltaFileReader,
+                                                   stream_writer=repo.StreamFileWriter)
 
 
 def transform_fn(df):
     return df.withColumn('onStream', F.lit("true"))
+
 
 def alternate_transform_fn(df):
     return df.withColumn('alternateOnStream', F.lit("true"))

@@ -1,4 +1,5 @@
-from typing import Callable
+from typing import Callable, List, Tuple
+from functools import reduce
 from pyspark.sql import SparkSession
 
 from jobsworthy.util import fn
@@ -26,3 +27,21 @@ def build_spark_session(session_name: str, create_fn: Callable = create_session,
 
 def spark_session_config(spark):
     spark.conf.set('spark.sql.jsonGenerator.ignoreNullFields', "false")
+
+
+def set_session_config_options(session: SparkSession, options: List[Tuple[str, str]]) -> None:
+    reduce(set_option_on_session, options, session)
+
+
+def unset_session_config_options(session: SparkSession, options: List[str]) -> None:
+    reduce(unset_option_on_session, options, session)
+
+
+def set_option_on_session(session: SparkSession, option: Tuple[str, str]) -> SparkSession:
+    session.conf.set(*option)
+    return session
+
+
+def unset_option_on_session(session: SparkSession, option: str) -> SparkSession:
+    session.conf.unset(option)
+    return session

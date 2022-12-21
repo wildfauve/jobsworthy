@@ -13,6 +13,7 @@ class StreamFileWriter:
         table_name = table_name if table_name else repo.table_name
         return stream.start(repo.delta_table_location(table_name))
 
+
 class StreamStarter:
 
     def write(self, stream: streaming.DataStreamWriter):
@@ -122,10 +123,12 @@ class StreamAwaiter:
 
     def await_termination(self,
                           stream_query: streaming.StreamingQuery = None,
-                          other_stream_query:streaming.StreamingQuery = None):
+                          other_stream_query: streaming.StreamingQuery = None,
+                          options_for_unsetting=[]):
         target_stream = other_stream_query if other_stream_query else stream_query
         if not target_stream:
             return None
 
         target_stream.awaitTermination()
+
         return self

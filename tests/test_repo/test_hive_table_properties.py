@@ -37,7 +37,7 @@ def test_add_table_properties_on_create(test_db):
 
 
 def test_find_table_props_by_urn(test_db):
-    my_table = tables.MyHiveTableWithCallbacks(db=test_db)
+    my_table = tables.MyHiveTableCreatedAsManagedTable(db=test_db)
 
     props = my_table.property_manager.to_table_properties()
 

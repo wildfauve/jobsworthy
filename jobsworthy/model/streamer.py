@@ -1,9 +1,9 @@
-from typing import Callable, Tuple, Dict
+from typing import Callable, Tuple, Dict, List, Optional
 from enum import Enum
 from uuid import uuid4
 from pyspark.sql import dataframe
 
-from jobsworthy.repo import hive_repo
+from jobsworthy import repo
 from jobsworthy.util import monad
 from . import value, model_errors
 
@@ -21,10 +21,20 @@ class StreamToPair:
         self.transformer_context = None
         self.transformed_df = None
         self.stream_write_type = None
+        self.stream_write_options = []
 
-    def stream_to(self, table: hive_repo.HiveRepo, write_type: StreamWriteType = StreamWriteType.APPEND):
+    def stream_to(self,
+                  table: repo.HiveRepo,
+                  write_type: StreamWriteType = StreamWriteType.APPEND,
+                  options: Optional[List[repo.Option]] = [],
+                  stream_trigger_condition: Optional[Dict] = None):
         self.stream_to_table = table
         self.stream_write_type = write_type
+        self.stream_write_options = options
+        if stream_trigger_condition:
+            self.stream_trigger_condition = stream_trigger_condition
+        else:
+            self.stream_trigger_condition = repo.HiveRepo.default_stream_trigger_condition
         return self
 
     def with_transformer(self, transformer: Callable, **kwargs):
@@ -47,22 +57,25 @@ class StreamToPair:
 
         :return:
         """
-        return getattr(self.stream_to_table, self.stream_write_type.value)(self.transformed_df)
+        return (getattr(self.stream_to_table, self.stream_write_type.value)
+                (stream=self.transformed_df,
+                 trigger=self.stream_trigger_condition,
+                 options=self.stream_write_options))
 
     def await_termination(self):
-        return self.stream_to_table.await_termination()
+        return self.stream_to_table.await_termination(options_for_unsetting=self.stream_write_options)
 
 
 class MultiStreamer:
     def __init__(self,
-                 stream_from_table: hive_repo.HiveRepo = None):
+                 stream_from_table: repo.HiveRepo = None):
         self.stream_id = str(uuid4())
         self.stream_from_table = stream_from_table
         self.runner = Runner()
         self.stream_pairs = []
         self.multi = True
 
-    def stream_from(self, table: hive_repo.HiveRepo):
+    def stream_from(self, table: repo.HiveRepo):
         self.stream_from_table = table
         return self
 
@@ -80,8 +93,8 @@ class MultiStreamer:
 class Streamer:
 
     def __init__(self,
-                 stream_from_table: hive_repo.HiveRepo = None,
-                 stream_from_to: hive_repo.HiveRepo = None,
+                 stream_from_table: repo.HiveRepo = None,
+                 stream_from_to: repo.HiveRepo = None,
                  transformer: Callable = None,
                  transformer_context: Dict = None,
                  partition_with: Tuple = None):
@@ -92,19 +105,27 @@ class Streamer:
         self.transformer = transformer
         self.transformer_context = transformer_context if transformer_context else dict()
         self.stream_write_type = None
+        self.stream_write_options = []
         self.multi = False
 
-    def stream_from(self, table: hive_repo.HiveRepo):
+    def stream_from(self, table: repo.HiveRepo):
         self.stream_from_table = table
         return self
 
     def stream_to(self,
-                  table: hive_repo.HiveRepo,
+                  table: repo.HiveRepo,
                   partition_columns: Tuple[str] = tuple(),
-                  write_type: StreamWriteType = StreamWriteType.APPEND):
+                  write_type: StreamWriteType = StreamWriteType.APPEND,
+                  options: Optional[List[repo.Option]] = [],
+                  stream_trigger_condition: Optional[Dict] = None):
         self.stream_to_table = table
         self.partition_with = partition_columns
         self.stream_write_type = write_type
+        self.stream_write_options = options
+        if stream_trigger_condition:
+            self.stream_trigger_condition = stream_trigger_condition
+        else:
+            self.stream_trigger_condition = repo.HiveRepo.default_stream_trigger_condition
         return self
 
     def with_transformer(self, transformer: Callable, **kwargs):
@@ -181,7 +202,9 @@ class Runner:
         :return:
         """
         result = (getattr(val.stream_configuration.stream_to_table, val.stream_configuration.stream_write_type.value)
-                  (val.stream_transformed_dataframe))
+                  (stream=val.stream_transformed_dataframe,
+                   trigger=val.stream_configuration.stream_trigger_condition,
+                   options=val.stream_configuration.stream_write_options))
 
         if result.is_left():
             return monad.Left(val.replace('error', result.error()))
@@ -197,5 +220,6 @@ class Runner:
         return monad.Right(val)
 
     def stream_awaiter(self, val: value.StreamState) -> monad.EitherMonad[value.StreamState]:
-        val.stream_configuration.stream_to_table.await_termination()
+        val.stream_configuration.stream_to_table.await_termination(
+            options_for_unsetting=val.stream_configuration.stream_write_options)
         return monad.Right(val)

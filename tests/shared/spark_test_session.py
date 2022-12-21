@@ -1,7 +1,9 @@
+from typing import List, Tuple
 import pyspark
 from delta import *
 
 from jobsworthy.util import session
+
 
 class MockPySparkSession:
 
@@ -28,6 +30,6 @@ def delta_builder(session_name):
             .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog"))
 
 
-def spark_session_config(spark):
+def spark_session_config(spark: pyspark.sql.session) -> None:
     spark.conf.set('hive.exec.dynamic.partition', "true")
     spark.conf.set('hive.exec.dynamic.partition.mode', "nonstrict")

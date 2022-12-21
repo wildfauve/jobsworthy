@@ -1,5 +1,6 @@
 import pytest
 import json
+from pyspark.sql.types import DecimalType, StringType
 
 from jobsworthy.util import monad, error
 from jobsworthy import structure as S
@@ -196,6 +197,215 @@ def test_raises_exception_when_column_cant_be_found():
         row1.cell_factory('invalid_column_name')
 
 
+def test_structure_dsl_with_vocab_raise_directive():
+    with pytest.raises(error.VocabNotFound):
+        (S.Table(vocab=vocab(), vocab_directives=[S.VocabDirective.RAISE_WHEN_TERM_NOT_FOUND])
+         .column()
+         .string("not_a_column", nullable=False))
+
+
+def test_column_structure_dsl():
+    table = (S.Table(vocab=vocab())
+             .column()  # column1: string
+             .string("columns.column1", nullable=False)
+
+             .column()  # column 2 struct with strings
+             .struct("columns.column2", nullable=False)
+             .string("columns.column2.sub1", nullable=False)
+             .string("columns.column2.sub1", nullable=False)
+             .end_struct()
+
+             .column()  # column 3: decimal
+             .decimal("columns.column3", DecimalType(6, 3), nullable=False)
+
+             .column()  # column 4: long
+             .long("columns.column5", nullable=False)
+
+             .column()  # column 5: array of strings
+             .array("columns.column4", StringType, nullable=False)
+
+             .column()  # column 6: array of structs
+             .array_struct("columns.column6", nullable=True)
+             .long("columns.column6.sub1", nullable=False)
+             .string("columns.column6.sub1", nullable=False)
+             .array("columns.column6.sub3", StringType, nullable=False)
+             .end_struct()  # end column6
+
+             .column()  # struct with strings and array of structs
+             .struct("columns.column7", nullable=False)
+             .string("columns.column7.sub1")
+             .struct("columns.column7.sub2", nullable=False)
+             .string("columns.column7.sub2.sub2-1")
+             .string("columns.column7.sub2.sub2-2")
+             .array_struct("columns.column7.sub3")
+             .string("columns.column7.sub3.sub3-1")
+             .string("columns.column7.sub3.sub3-2")
+             .end_struct()
+             .end_struct()
+             .end_struct()  # end column7
+             )
+
+    # print(json.dumps(table.hive_schema().jsonValue(), indent=4))
+
+    expected_schema = {
+        "type": "struct",
+        "fields": [
+            {
+                "name": "column_one",
+                "type": "string",
+                "nullable": False,
+                "metadata": {}
+            },
+            {
+                "name": "column_two",
+                "type": {
+                    "type": "struct",
+                    "fields": [
+                        {
+                            "name": "sub_one",
+                            "type": "string",
+                            "nullable": False,
+                            "metadata": {}
+                        },
+                        {
+                            "name": "sub_one",
+                            "type": "string",
+                            "nullable": False,
+                            "metadata": {}
+                        }
+                    ]
+                },
+                "nullable": False,
+                "metadata": {}
+            },
+            {
+                "name": "column_three",
+                "type": "decimal(6,3)",
+                "nullable": False,
+                "metadata": {}
+            },
+            {
+                "name": "column_five",
+                "type": "long",
+                "nullable": False,
+                "metadata": {}
+            },
+            {
+                "name": "column_four",
+                "type": {
+                    "type": "array",
+                    "elementType": "string",
+                    "containsNull": True
+                },
+                "nullable": False,
+                "metadata": {}
+            },
+            {
+                "name": "column_six",
+                "type": {
+                    "type": "array",
+                    "elementType": {
+                        "type": "struct",
+                        "fields": [
+                            {
+                                "name": "sub_one",
+                                "type": "long",
+                                "nullable": False,
+                                "metadata": {}
+                            },
+                            {
+                                "name": "sub_one",
+                                "type": "string",
+                                "nullable": False,
+                                "metadata": {}
+                            },
+                            {
+                                "name": "sub_three",
+                                "type": {
+                                    "type": "array",
+                                    "elementType": "string",
+                                    "containsNull": True
+                                },
+                                "nullable": False,
+                                "metadata": {}
+                            }
+                        ]
+                    },
+                    "containsNull": True
+                },
+                "nullable": True,
+                "metadata": {}
+            },
+            {
+                "name": "column_seven",
+                "type": {
+                    "type": "struct",
+                    "fields": [
+                        {
+                            "name": "sub_one",
+                            "type": "string",
+                            "nullable": False,
+                            "metadata": {}
+                        },
+                        {
+                            "name": "sub_two",
+                            "type": {
+                                "type": "struct",
+                                "fields": [
+                                    {
+                                        "name": "sub_two_one",
+                                        "type": "string",
+                                        "nullable": False,
+                                        "metadata": {}
+                                    },
+                                    {
+                                        "name": "sub_two_one",
+                                        "type": "string",
+                                        "nullable": False,
+                                        "metadata": {}
+                                    },
+                                    {
+                                        "name": "sub_three",
+                                        "type": {
+                                            "type": "array",
+                                            "elementType": {
+                                                "type": "struct",
+                                                "fields": [
+                                                    {
+                                                        "name": "sub_three_one",
+                                                        "type": "string",
+                                                        "nullable": False,
+                                                        "metadata": {}
+                                                    },
+                                                    {
+                                                        "name": "sub_three_two",
+                                                        "type": "string",
+                                                        "nullable": False,
+                                                        "metadata": {}
+                                                    }
+                                                ]
+                                            },
+                                            "containsNull": True
+                                        },
+                                        "nullable": False,
+                                        "metadata": {}
+                                    }
+                                ]
+                            },
+                            "nullable": False,
+                            "metadata": {}
+                        }
+                    ]
+                },
+                "nullable": False,
+                "metadata": {}
+            }
+        ]
+    }
+
+    assert table.hive_schema().jsonValue() == expected_schema
+
+
 #
 # Helpers
 #
@@ -244,7 +454,58 @@ def vocab():
                 "hasDataProductTerm": "column_one"
             },
             "column2": {
-                "hasDataProductTerm": "column_two"
+                "hasDataProductTerm": "column_two",
+                "sub1": {
+                    "hasDataProductTerm": "sub_one"
+                },
+                "sub2": {
+                    "hasDataProductTerm": "sub_two"
+                }
+            },
+            "column3": {
+                "hasDataProductTerm": "column_three",
+            },
+            "column4": {
+                "hasDataProductTerm": "column_four",
+            },
+            "column5": {
+                "hasDataProductTerm": "column_five",
+            },
+            "column6": {
+                "hasDataProductTerm": "column_six",
+                "sub1": {
+                    "hasDataProductTerm": "sub_one"
+                },
+                "sub2": {
+                    "hasDataProductTerm": "sub_two"
+                },
+                "sub3": {
+                    "term": "sub_three"
+                }
+            },
+            "column7": {
+                "hasDataProductTerm": "column_seven",
+                "sub1": {
+                    "hasDataProductTerm": "sub_one"
+                },
+                "sub2": {
+                    "term": "sub_two",
+                    "sub2-1": {
+                        "term": "sub_two_one",
+                    },
+                    "sub2-2": {
+                        "term": "sub_two_one",
+                    }
+                },
+                "sub3": {
+                    "term": "sub_three",
+                    "sub3-1": {
+                        "term": "sub_three_one",
+                    },
+                    "sub3-2": {
+                        "term": "sub_three_two",
+                    }
+                }
             }
         }
     }

@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import List, Union, Optional
 from pymonad.tools import curry
 from enum import Enum
 from pyspark.sql import dataframe
@@ -36,11 +36,15 @@ class DataAgreementType(Enum):
 
 class TableProperty:
     @classmethod
-    def table_property_expression(cls, set_of_props: List):
+    def table_property_expression(cls, set_of_props: Optional[List]):
+        if not set_of_props:
+            return None
         return ",".join([prop.format_as_expression() for prop in set_of_props])
 
     @classmethod
     def table_property_expression_keys(cls, set_of_props: List):
+        if not set_of_props:
+            return None
         return ",".join([prop.format_key_as_expression() for prop in set_of_props])
 
     def __init__(self,
