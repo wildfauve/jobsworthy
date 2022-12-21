@@ -79,6 +79,8 @@ optional_at_id = build_string_field("*.@id", common_vocab, nullable=True)
 
 at_type = build_string_field("*.@type", common_vocab, nullable=False)
 
+at_type_array = build_array_field("*.@type", common_vocab, StringType(), nullable=False)
+
 label = build_string_field("*.lcc-lr:hasTag", common_vocab, nullable=True)
 
 type_id_label_struct = StructType([
