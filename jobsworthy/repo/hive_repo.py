@@ -389,16 +389,22 @@ class HiveRepo(BaseRepo):
 
         self._raise_when_not_in_stream(stream)
 
-        if self.is_delta_table_from_path().is_left():
-            self.stream_query = self._write_stream_append_only(stream=stream,
-                                                               table_name=self.table_name,
-                                                               trigger_condition=trigger_condition,
-                                                               options=options)
-        else:
+        if self.table_exists(self.table_name):
             self.stream_query = self._stream_write_upsert(stream=stream,
                                                           table_name=self.table_name,
                                                           trigger_condition=trigger_condition,
                                                           options=options)
+        else:
+            if self.is_delta_table_from_path().is_left():
+                self.stream_query = self._write_stream_append_only(stream=stream,
+                                                                table_name=self.table_name,
+                                                                trigger_condition=trigger_condition,
+                                                                options=options)
+            else:
+                self.stream_query = self._stream_write_upsert(stream=stream,
+                                                            table_name=self.table_name,
+                                                            trigger_condition=trigger_condition,
+                                                            options=options)
 
         if awaiter:
             awaiter().await_termination(stream_query=self.stream_query,
