@@ -31,9 +31,33 @@ def raise_when_not_found(path_array: List[str], _term: str, vocab_directives):
 def term_for(path: str,
              vocab: Union[Dict, Tuple[List, Dict]],
              not_found_strategy: Callable = default_to_path) -> str:
+    """
+    Takes a path, a string using a simple dot notation to separate the vocab dict path, and a vocab dictionary and
+    returns a translated term name.  The vocab is a Dict without lists in the following format:
+        {
+            "columns": {
+                "column1": {
+                    "term": "column_one"
+                },
+                "column2": {
+                    "term": "column_two",
+                    "sub1": {
+                        "term": "sub_one"
+                    }
+                }
+            }
+        }
+    The path "columns.column2.sub1" returns the term "sub_one"
+    :param path:
+    :param vocab:
+    :param not_found_strategy:  The function to call when the path does not return a term.  The default is to return
+                                the path as a term name (default_to_path).  Otherwise use raise_when_not_found, which
+                                will call raise.
+    :return: Optional[str].  Possible Exception when using raise_when_not_found.
+    """
     vocab_directives, vocab_dict = extract_vocab_directives(vocab)
     path_array, term = term_finder(path, vocab_dict)
-    return get_term(path_array, term, not_found_strategy, vocab_directives)
+    return _get_term(path_array, term, not_found_strategy, vocab_directives)
 
 
 def meta_for(path: str, vocab: Union[Dict, Tuple[List, Dict]]) -> Dict:
@@ -48,13 +72,13 @@ def term_and_meta(path: str,
 
     vocab_directives, vocab_dict = extract_vocab_directives(vocab)
     path_array, term = term_finder(path, vocab_dict)
-    return get_term(path_array, term, not_found_strategy, vocab_directives), get_meta(term)
+    return _get_term(path_array, term, not_found_strategy, vocab_directives), get_meta(term)
 
 
-def get_term(path_array: List[str],
-             term: str,
-             not_found_strategy: Callable,
-             vocab_directives) -> Optional[str]:
+def _get_term(path_array: List[str],
+              term: str,
+              not_found_strategy: Callable,
+              vocab_directives) -> Optional[str]:
     if not term or TERM_NAMES.isdisjoint(set(term.keys())):
         return not_found_strategy(path_array, term, vocab_directives)
     return term.get((TERM_NAMES & (set(term.keys()))).pop(), None)

@@ -1,7 +1,8 @@
 from typing import Protocol
+from pyspark.sql import functions as F
 from jobsworthy import spark_job
-from jobsworthy.util import error, logger
-from . import repo_messages
+from jobsworthy.util import logger
+from . import repo_messages, sql_builder, properties
 
 
 class DbNamingConventionProtocol(Protocol):
@@ -177,7 +178,6 @@ class DbNamingConventionCallerDefined(DbNamingConventionProtocol):
         return (self.config.is_running_in_test and self.config.db.db_path_override_for_checkpoint)
 
 
-
 class DbNamingConventionDomainBased(DbNamingConventionProtocol):
     """
     DB and Table naming convention based on the names of the domain and data product.  Uses the following properties
@@ -264,11 +264,20 @@ class Db:
         self.session = session
         self.config = job_config
         self.naming_convention = naming_convention(self.config)
+        self.property_manager = properties.DbPropertyManager(session=self.session,
+                                                             asserted_properties=self.asserted_properties(),
+                                                             db_name=self.naming().database_name())
+
+        self.properties = self.property_manager  # hides, a little, the class managing properties.
         self.create_db_if_not_exists()
 
+    #
+    # DB LifeCycle Functions
+    #
     def create_db_if_not_exists(self):
-        self.session.sql(
-            f"create database IF NOT EXISTS {self.naming().database_name()} LOCATION '{self.naming().db_path()}'")
+        self.session.sql(sql_builder.create_db(db_name=self.naming().database_name(),
+                                               db_path=self.naming().db_path(),
+                                               db_property_expression=self.property_expr()))
 
     def drop_db(self):
         self.session.sql(f"drop database IF EXISTS {self.naming().database_name()} CASCADE")
@@ -288,6 +297,15 @@ class Db:
 
     def table_format(self):
         return self.config.db.table_format
+
+    #
+    # DB Property Functions
+    #
+    def asserted_properties(self):
+        return self.__class__.db_properties if hasattr(self, 'db_properties') else None
+
+    def property_expr(self):
+        return properties.DbProperty.property_expression(self.asserted_properties())
 
     def naming(self):
         return self.naming_convention

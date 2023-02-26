@@ -1,6 +1,22 @@
 from typing import Tuple, List
 
 
+def create_db(db_name: str,
+              db_path: str,
+              db_property_expression: str = None):
+    sql = create_db_base(db_name, db_path)
+
+    sql.append(f" WITH DBPROPERTIES ( {db_property_expression} )") if db_property_expression else sql
+    return joiner(sql)
+
+def describe_db(db_name: str) -> str:
+    sql = [f"DESCRIBE DATABASE EXTENDED {db_name}"]
+    return joiner(sql)
+
+def create_db_base(db_name: str,
+                   db_path: str):
+    return [f"create database IF NOT EXISTS {db_name} LOCATION '{db_path}'"]
+
 def create_unmanaged_table(table_name: str,
                            col_specification: str,
                            location: str,

@@ -123,7 +123,7 @@ def test_session_initialised(local_container):
     from tests.shared import dependencies as deps
 
     the_secret = deps.secrets_provider().get_secret("CosmosDBAuthorizationKey",
-                                                    non_default_scope_name="my_secrets_scope")
+                                                     non_default_scope_name="my_secrets_scope")
 
     assert the_secret.value == "a-secret"
     assert isinstance(deps.secrets_provider().utils().session, session.SparkSession)

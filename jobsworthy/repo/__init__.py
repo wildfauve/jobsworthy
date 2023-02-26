@@ -22,9 +22,11 @@ from .reader_writer import (
 )
 
 from .properties import (
+    DbProperty,
     TableProperty,
     DataAgreementType,
-    PropertyManager
+    DbPropertyManager,
+    TablePropertyManager
 )
 
 

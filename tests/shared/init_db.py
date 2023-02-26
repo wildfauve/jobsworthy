@@ -5,10 +5,28 @@ from jobsworthy import repo
 
 from . import spark_test_session, config_for_testing
 
+class MyDb(repo.Db):
+    db_properties = [
+        repo.DbProperty(repo.DataAgreementType.DATA_PRODUCT, "my_data_product", "my_namespace"),
+        repo.DbProperty(repo.DataAgreementType.DESCRIPTION,
+                        "DB for Data Product 1",
+                        "my_namespace"),
+    ]
+
+class MyDbWithoutProps(repo.Db):
+    pass
 
 @pytest.fixture
 def test_db():
-    db = repo.Db(session=spark_test_session.create_session(), job_config=job_cfg())
+    db = MyDb(session=spark_test_session.create_session(), job_config=job_cfg())
+
+    yield db
+
+    db.drop_db()
+
+@pytest.fixture
+def test_db_without_props():
+    db = MyDbWithoutProps(session=spark_test_session.create_session(), job_config=job_cfg())
 
     yield db
 

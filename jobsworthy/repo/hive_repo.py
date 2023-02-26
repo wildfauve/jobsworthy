@@ -75,9 +75,9 @@ class HiveRepo(BaseRepo):
         self.stream_upsert_writer = reader_writer.StreamStarter
         if not self.name_of_table():
             raise repo_messages.table_name_not_configured()
-        self.property_manager = properties.PropertyManager(session=self.db.session,
-                                                           asserted_table_properties=self.asserted_table_properties(),
-                                                           db_table_name=self.db_table_name())
+        self.property_manager = properties.TablePropertyManager(session=self.db.session,
+                                                                asserted_properties=self.asserted_table_properties(),
+                                                                db_table_name=self.db_table_name())
 
         self.properties = self.property_manager  # hides, a little, the class managing properties.
 
@@ -141,7 +141,7 @@ class HiveRepo(BaseRepo):
                                                                location=self.db.naming().db_table_path(
                                                                    self.table_name)))
 
-        self.property_manager.invalidate_table_property_cache()
+        self.property_manager.invalidate_property_cache()
 
     def create_as_managed_delta_table(self):
         if self.partition_on() and not self.has_specified_schema():
@@ -152,7 +152,7 @@ class HiveRepo(BaseRepo):
                                                              partition_clause=self.partition_on(),
                                                              table_property_expression=self.table_property_expr()))
 
-        self.property_manager.invalidate_table_property_cache()
+        self.property_manager.invalidate_property_cache()
 
     def column_specification_from_schema(self):
         if not self.has_specified_schema():
