@@ -86,6 +86,7 @@ class MultiStreamer:
     def run(self) -> monad.EitherMonad:
         result = self.runner.run(self)
         if result.is_left():
+            breakpoint()
             return monad.Left(result.error)
         return monad.Right(self)
 
@@ -136,7 +137,7 @@ class Streamer:
     def run(self) -> monad.EitherMonad:
         result = self.runner.run(self)
         if result.is_left():
-            return monad.Left(result.error)
+            return monad.Left(result.error())
         return monad.Right(self)
 
 

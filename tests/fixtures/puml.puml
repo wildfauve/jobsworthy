@@ -1,0 +1,115 @@
+@startuml some-model-name
+
+!theme amiga
+
+class root <<table>> {
+}
+
+class dateTime <<column>> {
+    --meta--
+    isAtColumnPosition: 0
+    ===
+    dateTime: Optional[StringType]
+}
+
+class identity <<column>> {
+    --meta--
+    isAtColumnPosition: 1
+    ===
+    identity: Optional[StringType]
+}
+
+class aNumber <<column>> {
+    --meta--
+    isAtColumnPosition: 2
+    ===
+    aNumber: Optional[LongType]
+}
+
+class aDecimalNumber <<column>> {
+    --meta--
+    isAtColumnPosition: 3
+    ===
+    aDecimalNumber: Optional[DecimalType(20,5)]
+}
+
+class aPrimitiveArray <<column>> {
+    --meta--
+    isAtColumnPosition: 4
+    ===
+    aPrimitiveArray: Optional[Array[StringType]]
+}
+
+class aStruct <<column>> {
+    --meta--
+    isAtColumnPosition: 5
+    ===
+    id: Optional[StringType]
+    type: Optional[StringType]
+    label: Optional[StringType]
+}
+
+class aStructArray <<column>> {
+    --meta--
+    isAtColumnPosition: 6
+    ===
+}
+
+class aStructArrayArrayStruct <<array_struct>> {
+    type: Optional[StringType]
+    label: Optional[StringType]
+}
+
+class aNestedStruct <<column>> {
+    --meta--
+    isAtColumnPosition: 7
+    ===
+    id: Optional[StringType]
+    type: Optional[Array[StringType]]
+    units: Optional[DecimalType(20,6)]
+}
+
+class complexDate <<struct>> {
+    year: Optional[IntegerType]
+    month: Optional[IntegerType]
+    day: Optional[IntegerType]
+    time_zone: Optional[StringType]
+}
+
+class pricesArray <<struct>> {
+    id: Optional[StringType]
+    type: Optional[Array[StringType]]
+    amount: Optional[DecimalType(20,6)]
+    currencyUri: Optional[StringType]
+    observedDateTime: Optional[StringType]
+    label: Optional[StringType]
+}
+
+class anotherNestedStructWithTheSameStruct <<column>> {
+    --meta--
+    isAtColumnPosition: 8
+    ===
+}
+
+class run <<column>> {
+    --meta--
+    isAtColumnPosition: 9
+    ===
+    runIdentity: Optional[StringType]
+}
+
+root --> dateTime 
+root --> identity 
+root --> aNumber 
+root --> aDecimalNumber 
+root --> aPrimitiveArray 
+root --> aStruct 
+root --> aStructArray 
+root --> aNestedStruct 
+root --> anotherNestedStructWithTheSameStruct 
+root --> run 
+aStructArray --> "1..*" aStructArrayArrayStruct 
+aNestedStruct --> complexDate 
+aNestedStruct --> pricesArray 
+anotherNestedStructWithTheSameStruct --> complexDate 
+@enduml

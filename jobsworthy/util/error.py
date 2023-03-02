@@ -43,3 +43,7 @@ class SecretError(JobError):
 
 class VocabNotFound(JobError):
     pass
+
+
+class ModellingException(JobError):
+    pass

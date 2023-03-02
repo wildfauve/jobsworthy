@@ -1,0 +1,339 @@
+@startuml some-model-name
+
+!theme amiga
+
+class root <<table>> {
+}
+
+class navDateTime <<column>> {
+    --meta--
+    isAtColumnPosition: 0
+    ===
+    navDateTime: Optional[StringType]
+}
+
+class navDateMonth <<column>> {
+    --meta--
+    isAtColumnPosition: 1
+    ===
+    navDateMonth: Optional[StringType]
+}
+
+class dateUTCDimension <<column>> {
+    --meta--
+    isAtColumnPosition: 2
+    ===
+    dateUTCDimension: Optional[StringType]
+}
+
+class identity <<column>> {
+    --meta--
+    isAtColumnPosition: 3
+    ===
+    identity: Optional[StringType]
+}
+
+class portfolio <<column>> {
+    --meta--
+    isAtColumnPosition: 4
+    ===
+    id: Optional[StringType]
+    type: Optional[StringType]
+    label: Optional[StringType]
+}
+
+class position <<column>> {
+    --meta--
+    isAtColumnPosition: 5
+    ===
+    id: Optional[StringType]
+    type: Optional[StringType]
+}
+
+class positionValuation <<column>> {
+    --meta--
+    isAtColumnPosition: 6
+    ===
+    id: Optional[StringType]
+    type: Optional[Array[StringType]]
+    navDateTime: Optional[StringType]
+    units: Optional[DecimalType(20,6)]
+    unitsPledgedAsCollateral: Optional[DecimalType(20,6)]
+    version: Optional[LongType]
+}
+
+class valuationDate <<struct>> {
+    year: Optional[IntegerType]
+    month: Optional[IntegerType]
+    day: Optional[IntegerType]
+    time_zone: Optional[StringType]
+}
+
+class valuationPrices <<struct>> {
+    id: Optional[StringType]
+    type: Optional[Array[StringType]]
+    amount: Optional[DecimalType(20,6)]
+    currencyUri: Optional[StringType]
+    observedDateTime: Optional[StringType]
+    label: Optional[StringType]
+}
+
+class positionValuationChange <<column>> {
+    --meta--
+    isAtColumnPosition: 7
+    ===
+    id: Optional[StringType]
+    type: Optional[Array[StringType]]
+    navDateTime: Optional[StringType]
+    units: Optional[DecimalType(20,6)]
+    unitsPledgedAsCollateral: Optional[DecimalType(20,6)]
+    valuationMethod: Optional[StringType]
+}
+
+class costValuationChange <<struct>> {
+    type: Optional[StringType]
+}
+
+class acquisitionPrices <<struct>> {
+    id: Optional[StringType]
+    type: Optional[Array[StringType]]
+    amount: Optional[DecimalType(20,6)]
+    currencyUri: Optional[StringType]
+    observedDateTime: Optional[StringType]
+    label: Optional[StringType]
+}
+
+class positionCostValuation <<column>> {
+    --meta--
+    isAtColumnPosition: 8
+    ===
+    type: Optional[StringType]
+}
+
+class incomeReceivable <<column>> {
+    --meta--
+    isAtColumnPosition: 9
+    ===
+    distributionMethod: Optional[StringType]
+}
+
+class paymentAmounts <<struct>> {
+    id: Optional[StringType]
+    type: Optional[Array[StringType]]
+    amount: Optional[DecimalType(20,6)]
+    currencyUri: Optional[StringType]
+    observedDateTime: Optional[StringType]
+    label: Optional[StringType]
+    paymentCurrency: Optional[StringType]
+}
+
+class incomeReceivableChange <<column>> {
+    --meta--
+    isAtColumnPosition: 10
+    ===
+    distributionMethod: Optional[StringType]
+}
+
+class depot <<column>> {
+    --meta--
+    isAtColumnPosition: 11
+    ===
+    id: Optional[StringType]
+    type: Optional[StringType]
+    label: Optional[StringType]
+    notation: Optional[StringType]
+}
+
+class financialInstrument <<column>> {
+    --meta--
+    isAtColumnPosition: 12
+    ===
+    id: Optional[StringType]
+    type: Optional[StringType]
+}
+
+class financialInstrumentPosition <<column>> {
+    --meta--
+    isAtColumnPosition: 13
+    ===
+    type: Optional[Array[StringType]]
+    version: Optional[LongType]
+}
+
+class financialInstrumentShortName <<column>> {
+    --meta--
+    isAtColumnPosition: 14
+    ===
+    label: Optional[StringType]
+    member: Optional[StringType]
+}
+
+class financialInstrumentRatingScore <<column>> {
+    --meta--
+    isAtColumnPosition: 15
+    ===
+}
+
+class financialInstrumentRatingScoreArrayStruct <<array_struct>> {
+    id: Optional[StringType]
+}
+
+class countryOfRisk <<column>> {
+    --meta--
+    isAtColumnPosition: 15
+    ===
+    countryOfRisk: Optional[StringType]
+}
+
+class financialInstrumentLegallyRecordedInCountry <<column>> {
+    --meta--
+    isAtColumnPosition: 16
+    ===
+    financialInstrumentLegallyRecordedInCountry: Optional[StringType]
+}
+
+class financialInstrumentIssuer <<column>> {
+    --meta--
+    isAtColumnPosition: 17
+    ===
+    type: Optional[StringType]
+    classifier: Optional[StringType]
+    notation: Optional[StringType]
+    label: Optional[StringType]
+}
+
+class financialInstrumentMaturityDate <<column>> {
+    --meta--
+    isAtColumnPosition: 18
+    ===
+    financialInstrumentMaturityDate: Optional[StringType]
+}
+
+class financialInstrumentIdentifiers <<column>> {
+    --meta--
+    isAtColumnPosition: 19
+    ===
+}
+
+class financialInstrumentIdentifiersArrayStruct <<array_struct>> {
+    type: Optional[StringType]
+    label: Optional[StringType]
+}
+
+class financialInstrumentClassifiers <<column>> {
+    --meta--
+    isAtColumnPosition: 19
+    ===
+}
+
+class financialInstrumentClassifiersArrayStruct <<array_struct>> {
+    type: Optional[StringType]
+    label: Optional[StringType]
+    notation: Optional[StringType]
+}
+
+class financialInstrumentPrices <<column>> {
+    --meta--
+    isAtColumnPosition: 19
+    ===
+}
+
+class financialInstrumentPricesArrayStruct <<array_struct>> {
+    id: Optional[StringType]
+    type: Optional[Array[StringType]]
+    amount: Optional[DecimalType(20,6)]
+    currencyUri: Optional[StringType]
+    observedDateTime: Optional[StringType]
+    financialInstrumentPricingSource: Optional[StringType]
+    label: Optional[StringType]
+}
+
+class financialInstrumentPricesChange <<column>> {
+    --meta--
+    isAtColumnPosition: 19
+    ===
+}
+
+class financialInstrumentPricesChangeArrayStruct <<array_struct>> {
+    id: Optional[StringType]
+    type: Optional[Array[StringType]]
+    amount: Optional[DecimalType(20,6)]
+    currencyUri: Optional[StringType]
+    observedDateTime: Optional[StringType]
+    financialInstrumentPricingSource: Optional[StringType]
+    label: Optional[StringType]
+}
+
+class financialInstrumentPricingFactor <<column>> {
+    --meta--
+    isAtColumnPosition: 19
+    ===
+    financialInstrumentPricingFactor: Optional[DecimalType(10,6)]
+}
+
+class annualisedDividendRate <<column>> {
+    --meta--
+    isAtColumnPosition: 20
+    ===
+    type: Optional[StringType]
+    rate: Optional[DecimalType(10,6)]
+}
+
+class annualisedInterestRate <<column>> {
+    --meta--
+    isAtColumnPosition: 21
+    ===
+    type: Optional[StringType]
+    rate: Optional[DecimalType(10,6)]
+}
+
+class run <<column>> {
+    --meta--
+    isAtColumnPosition: 22
+    ===
+    runIdentity: Optional[StringType]
+}
+
+root --> navDateTime 
+root --> navDateMonth 
+root --> dateUTCDimension 
+root --> identity 
+root --> portfolio 
+root --> position 
+root --> positionValuation 
+root --> positionValuationChange 
+root --> positionCostValuation 
+root --> incomeReceivable 
+root --> incomeReceivableChange 
+root --> depot 
+root --> financialInstrument 
+root --> financialInstrumentPosition 
+root --> financialInstrumentShortName 
+root --> financialInstrumentRatingScore 
+root --> countryOfRisk 
+root --> financialInstrumentLegallyRecordedInCountry 
+root --> financialInstrumentIssuer 
+root --> financialInstrumentMaturityDate 
+root --> financialInstrumentIdentifiers 
+root --> financialInstrumentClassifiers 
+root --> financialInstrumentPrices 
+root --> financialInstrumentPricesChange 
+root --> financialInstrumentPricingFactor 
+root --> annualisedDividendRate 
+root --> annualisedInterestRate 
+root --> run 
+positionValuation --> valuationDate 
+positionValuation --> valuationPrices 
+positionValuationChange --> valuationDate 
+positionValuationChange --> costValuationChange 
+positionValuationChange --> valuationPrices 
+costValuationChange --> acquisitionPrices 
+positionCostValuation --> acquisitionPrices 
+incomeReceivable --> paymentAmounts 
+incomeReceivableChange --> paymentAmounts 
+financialInstrumentRatingScore --> "1..*" financialInstrumentRatingScoreArrayStruct 
+financialInstrumentIdentifiers --> "1..*" financialInstrumentIdentifiersArrayStruct 
+financialInstrumentClassifiers --> "1..*" financialInstrumentClassifiersArrayStruct 
+financialInstrumentPrices --> "1..*" financialInstrumentPricesArrayStruct 
+financialInstrumentPricesChange --> "1..*" financialInstrumentPricesChangeArrayStruct 
+@enduml

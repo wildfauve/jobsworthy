@@ -37,9 +37,6 @@ class Observable:
 
 class DataSet(Observable):
     type_of = None
-
-
-class Hive(DataSet):
     dataset_namespace = None
 
     @classmethod
@@ -51,6 +48,19 @@ class Hive(DataSet):
         if not isinstance(self.dataset_namespace, Namespace):
             raise error.ObserverConfigError("Namespace not configured and not configured with correct type")
         return self.dataset_namespace
+
+
+
+class Hive(DataSet):
+    pass
+
+
+class EventTable(DataSet):
+    pass
+
+
+class ObjectStore(DataSet):
+    pass
 
 
 class HiveTable(Hive):
@@ -75,16 +85,27 @@ class HiveTable(Hive):
         )
 
 
-class ObjectStore(DataSet):
-    @classmethod
-    def namespace(cls, namespace):
-        cls.dataset_namespace = namespace
-        return cls
+class CosmosEventTable(EventTable):
+    type_of = Observable.sfo_lin.CosmosEventTable
+
+    def __init__(self, table_name, fully_qualified_name):
+        self.table_name = table_name
+        self.fully_qualified_name = fully_qualified_name
 
     def dataset_identity(self):
         return self.namespace_uri()
 
-    pass
+    def identity(self):
+        return self.dataset_identity().term(self.fully_qualified_name)
+
+    def to_props(self):
+        return (
+            self.coerce_uri(self.identity()),
+            self.coerce_uri(self.type_of),
+            self.fully_qualified_name,
+            self.table_name
+        )
+
 
 
 class ObjectStoreFile(ObjectStore):
@@ -310,7 +331,7 @@ class Run(Job):
         """
         Required for the logger interface.  Collects both observer and run info.
         """
-        obs_data = self.parent_observer.serialise() if self.parent_observer else {}
+        obs_data = self.parent_observer.generate() if self.parent_observer else {}
         return {**{'trace_id': self.trace_id()}, **obs_data}
 
 
@@ -451,7 +472,7 @@ def observer_factory(env: str, job: Job, emitter: Emitter) -> Observer:
 
 
 def define_namespace(cls, uri: str) -> None:
-    if not cls in [SparkJob, Hive, ObjectStore]:
+    if not cls in [SparkJob, Hive, ObjectStore, EventTable]:
         raise error.ObserverConfigError("Namespace must be configured on SparkJob, Hive, or ObjectStore")
     if not validate.valid_uri(uri):
         raise error.ObserverConfigError("Namespace must be a valid URI")

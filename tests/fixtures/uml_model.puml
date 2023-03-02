@@ -1,0 +1,56 @@
+@startuml uml-data-product-model
+
+!theme amiga
+
+class DataProductTable <<table>> {
+    --meta--
+    location: /domains/my_domain/data_products/my_dp/my.db
+    isInDomain: my_domain
+    isInDataProduct: my_dp
+    hasDatabaseName: my.db
+    hasTableName: data_product_table
+    hasUpdateFrequency: daily
+    hasPrimaryIdentity:identity
+    isPartitionedOn: type
+    hasDeltaMergeProperty: identity
+    hasDataStyle: Entity.Core
+    ===
+}
+
+class Identity <<column>> {
+    --meta--
+    isAtColumnPosition: 1
+    vocabNamespace: my_dp_ns
+    ===
+    @id: StringType
+}
+
+class Type <<column>> {
+    --meta--
+    isAtColumnPosition: 2
+    vocabNamespace: my_dp_ns
+    ===
+    @type: ArrayType[StringType]
+}
+
+
+class StructColumn1 <<column>> {
+    --meta--
+    isAtColumnPosition: 3
+    vocabNamespace: a_struct_1
+    ===
+    type: StringType
+    name: StringType
+    aLong: LongType
+    anAmount: DecimalType(11, 5)
+    anOptionalAmount: Optional[DecimalType(11, 5)]
+    multipleOptionalAmounts: Optional[ArrayType[DecimalType(11, 5)]]
+}
+
+
+DataProductTable --> "1..1" Identity: <<specialisation:core>>
+DataProductTable --> "1..1" Type: <<specialisation:core>>
+DataProductTable --> "1..1" StructColumn1: <<specialisation:core>>
+
+
+@enduml

@@ -23,8 +23,13 @@ class MyOutputHiveTable2(observer.HiveTable):
     pass
 
 
+class MyCosmosDbEventTable(observer.CosmosEventTable):
+    pass
+
+
 def setup_module():
     observer.define_namespace(observer.Hive, 'https://example.nz/service/datasets/dataset/')
+    observer.define_namespace(observer.EventTable, 'https://example.nz/service/events/')
     observer.define_namespace(observer.SparkJob, 'https://example.nz/service/jobs/job/')
     observer.define_namespace(observer.ObjectStore, 'https://example.nz/service/datasets/batchFile/')
 
@@ -50,10 +55,14 @@ def it_adds_a_run_input():
 
     input_table = MyInputHiveTable(table_name="myTable", fully_qualified_name="myDB.myTable")
 
-    job_run.has_input(dataset=input_table)
+    event_table = MyCosmosDbEventTable(table_name="events", fully_qualified_name='events.event_table')
 
-    assert job_run.inputs[0].identity() == URIRef('https://example.nz/service/datasets/dataset/myDB.myTable')
+    job_run.has_input(dataset=input_table).has_input(dataset=event_table)
 
+    inputs = {inp.identity() for inp in job_run.inputs}
+
+    assert inputs == {URIRef('https://example.nz/service/datasets/dataset/myDB.myTable'),
+                      URIRef('https://example.nz/service/events/events.event_table')}
 
 
 def test_run_takes_multiple_inputs():
@@ -133,6 +142,7 @@ def it_builds_table_from_run(test_db):
 
     assert not metrics
 
+
 def test_all_cells_valid(test_db):
     obs = create_obs_with_hive_emitter(test_db)
     job_run = create_full_run(None, obs)
@@ -148,13 +158,13 @@ def it_sets_trace_id():
     assert job_run.trace_id() == "https://example.com/service/jobs/job/trace_uuid"
 
 
-
 #
 #
 #
 def create_obs():
     emitter = observer.ObserverNoopEmitter()
     return observer.observer_factory("test", observer.SparkJob(), emitter)
+
 
 def create_obs_with_hive_emitter(test_db):
     emitter = observer.ObserverHiveEmitter(test_db)

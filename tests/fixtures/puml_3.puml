@@ -1,0 +1,156 @@
+@startuml some-model-name
+
+!theme amiga
+
+class root <<table>> {
+}
+
+class heldInstrumentIdentity <<column>> {
+    --meta--
+    isAtColumnPosition: 0
+    ===
+    heldInstrumentIdentity: Optional[StringType]
+}
+
+class type <<column>> {
+    --meta--
+    isAtColumnPosition: 1
+    ===
+    type: Optional[Array[StringType]]
+}
+
+class heldInstrument <<column>> {
+    --meta--
+    isAtColumnPosition: 2
+    ===
+    shortName: Optional[StringType]
+    structuralType: Optional[StringType]
+}
+
+class currentState <<column>> {
+    --meta--
+    isAtColumnPosition: 3
+    ===
+    currentState: Optional[StringType]
+}
+
+class appliedAt <<column>> {
+    --meta--
+    isAtColumnPosition: 4
+    ===
+    hasTimeInstant: Optional[StringType]
+    hasMonthDimension: StringType
+    isInYear: Optional[LongType]
+}
+
+class createdAt <<column>> {
+    --meta--
+    isAtColumnPosition: 5
+    ===
+    hasTimeInstant: Optional[StringType]
+    hasMonthDimension: StringType
+    isInYear: Optional[LongType]
+}
+
+class issuer <<column>> {
+    --meta--
+    isAtColumnPosition: 6
+    ===
+    issuerIdentity: Optional[StringType]
+    type: Optional[Array[StringType]]
+    label: Optional[StringType]
+}
+
+class issuerClassification <<column>> {
+    --meta--
+    isAtColumnPosition: 7
+    ===
+    @id: Optional[StringType]
+    @type: Optional[Array[StringType]]
+}
+
+class countryOfRisk <<column>> {
+    --meta--
+    isAtColumnPosition: 8
+    ===
+    id: Optional[StringType]
+    label: Optional[StringType]
+}
+
+class legalJurisdiction_countryOfRisk <<column>> {
+    --meta--
+    isAtColumnPosition: 9
+    ===
+    id: Optional[StringType]
+    label: Optional[StringType]
+}
+
+class classification <<column>> {
+    --meta--
+    isAtColumnPosition: 10
+    ===
+}
+
+class classificationArrayStruct <<array_struct>> {
+    id: Optional[StringType]
+    type: Optional[Array[StringType]]
+    label: Optional[StringType]
+}
+
+class rating <<column>> {
+    --meta--
+    isAtColumnPosition: 11
+    ===
+}
+
+class ratingArrayStruct <<array_struct>> {
+    id: Optional[StringType]
+    type: Optional[Array[StringType]]
+    label: Optional[StringType]
+}
+
+class identifier <<column>> {
+    --meta--
+    isAtColumnPosition: 12
+    ===
+}
+
+class identifierArrayStruct <<array_struct>> {
+    id: Optional[StringType]
+    type: Optional[Array[StringType]]
+    label: Optional[StringType]
+}
+
+class streamId <<column>> {
+    --meta--
+    isAtColumnPosition: 13
+    ===
+    streamId: StringType
+}
+
+class run <<column>> {
+    --meta--
+    isAtColumnPosition: 14
+    ===
+    id: StringType
+}
+
+root --> heldInstrumentIdentity 
+root --> type 
+root --> heldInstrument 
+root --> currentState 
+root --> appliedAt 
+root --> createdAt 
+root --> issuer 
+root --> issuerClassification 
+root --> countryOfRisk 
+root --> legalJurisdiction_countryOfRisk 
+root --> classification 
+root --> rating 
+root --> identifier 
+root --> streamId 
+root --> run 
+classification --> "1..*" classificationArrayStruct 
+rating --> "1..*" ratingArrayStruct 
+identifier --> "1..*" identifierArrayStruct 
+@enduml
