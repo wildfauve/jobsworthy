@@ -2,7 +2,7 @@ from rdflib import URIRef, Namespace
 import time_machine
 import pendulum
 
-from jobsworthy.observer import observer
+from jobsworthy import observer
 
 from tests.shared import spark_test_session
 

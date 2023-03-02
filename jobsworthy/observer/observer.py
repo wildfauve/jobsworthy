@@ -331,7 +331,7 @@ class Run(Job):
         """
         Required for the logger interface.  Collects both observer and run info.
         """
-        obs_data = self.parent_observer.generate() if self.parent_observer else {}
+        obs_data = self.parent_observer.serialise() if self.parent_observer else {}
         return {**{'trace_id': self.trace_id()}, **obs_data}
 
 

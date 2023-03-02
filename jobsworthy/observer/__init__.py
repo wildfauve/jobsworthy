@@ -2,6 +2,8 @@ from .observer import (
     Observable,
     Hive,
     HiveTable,
+    EventTable,
+    CosmosEventTable,
     ObjectStore,
     ObjectStoreFile,
     Job,

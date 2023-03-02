@@ -1,4 +1,13 @@
+from jobsworthy import observer
 from jobsworthy.util import logger, singleton
+
+
+class RunOfMySparkJob(observer.Run):
+    pass
+
+
+def setup_module():
+    observer.define_namespace(observer.SparkJob, 'https://example.nz/service/jobs/job/')
 
 
 def test_log_level_with_kwargs(mocker):
@@ -27,6 +36,18 @@ def test_perf_decorator(mocker):
 
     assert logs[0][0]['ctx']['fn'] == "with_perf_log_decorator"
     assert logs[0][1] == "PerfLog"
+
+
+def test_log_with_observer(mocker):
+    Spy().clear()
+    mocker.patch('jobsworthy.util.logger.logger', Spy)
+    obs = an_observer()
+    logger.info(msg="msg", ctx={'result': "a-value"}, observer=obs)
+
+    logged_ctx, _ = Spy().logs[0]
+
+    assert logged_ctx['ctx'] == {'result': "a-value"}
+    assert logged_ctx['trace_id'] == obs.identity().toPython()
 
 
 def test_performance_log_calls_back():
@@ -70,3 +91,9 @@ def perf_log_callback(name, delta):
 @logger.with_perf_log(perf_log_type="function", name="test.function_with_logging", callback=perf_log_callback)
 def function_with_logging():
     return True
+
+
+def an_observer():
+    emitter = observer.ObserverNoopEmitter()
+
+    return observer.observer_factory("test", observer.SparkJob(), emitter)

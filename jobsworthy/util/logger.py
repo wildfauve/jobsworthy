@@ -52,11 +52,10 @@ def perf_log(fn: str, delta_t: float, callback: Callable):
     info("PerfLog", ctx={'fn': fn, 'delta_t': delta_t})
 
 def meta(observer, status: Union[str, int], ctx: Dict):
-    # coersed_ctx = nested_coerse({}, ctx)
     return {**trace_meta(observer), **{'ctx': ctx}, **{'status': status}}
 
 def trace_meta(observer):
-    return observer.generate() if observer else {}
+    return observer.serialise() if observer else {}
 
 
 level_functions = {'info': _info}
