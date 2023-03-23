@@ -1,8 +1,8 @@
 from typing import Any, Callable, Dict, List, Tuple, Union
 import json
-from functools import reduce
+from functools import reduce, partial
 from pymonad.tools import curry
-from pyspark.sql.types import StructType
+from pyspark.sql import types as T
 
 from jobsworthy.util import fn, json_util, monad
 from jobsworthy.util import error
@@ -73,7 +73,6 @@ class Struct:
         self.fields.append(su.build_array_field(term, self.vocab, scalar_type(), nullable=nullable))
         return self
 
-
     def struct(self,
                term,
                nullable: bool = False):
@@ -92,15 +91,12 @@ class Struct:
         self.fields.append(su.build_array_field(self.term, self.vocab, struct_type, self.nullable))
         return self
 
-
     def nested_struct_callback(self, struct_type):
         self.fields.append(su.build_struct_field(self.term, self.vocab, struct_type, self.nullable))
         return self
 
     def end_struct(self):
-        return self.callback(StructType(self.fields))
-
-
+        return self.callback(T.StructType(self.fields))
 
 
 class Column:
@@ -197,7 +193,6 @@ class Column:
         return self.callback
 
 
-
 class Table:
 
     def __init__(self,
@@ -233,7 +228,7 @@ class Table:
         return col
 
     def hive_schema(self):
-        return StructType(list(map(lambda column: column.schema, self.columns)))
+        return T.StructType(list(map(lambda column: column.schema, self.columns)))
 
     def exception_table(self):
         return self.__class__(vocab=self.vocab,
@@ -241,6 +236,17 @@ class Table:
 
     def row_factory(self):
         return Row(self)
+
+    def schema_for_column(self, vocab_column_name) -> T.StructType:
+        column = fn.find(partial(self._column_by_name_predicate,
+                                 V.term_for(vocab_column_name, self.vocab)),
+                         self.columns)
+        if not column:
+            return None
+        return column.schema
+
+    def _column_by_name_predicate(self, column_name, column: Column) -> bool:
+        return column.schema_name() == column_name
 
 
 class Cell:

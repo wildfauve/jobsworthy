@@ -1,6 +1,6 @@
+from __future__ import annotations
+
 from typing import Protocol
-from pyspark.sql import functions as F
-from jobsworthy import spark_job
 from jobsworthy.util import logger
 from . import repo_messages, sql_builder, properties
 
@@ -98,7 +98,7 @@ class DbNamingConventionCallerDefined(DbNamingConventionProtocol):
 
     checkpoint_folder = "_checkpoint"
 
-    def __init__(self, job_config: spark_job.JobConfig):
+    def __init__(self, job_config):
         self.config = job_config
 
     def database_name(self):
@@ -194,7 +194,7 @@ class DbNamingConventionDomainBased(DbNamingConventionProtocol):
 
     checkpoint_folder = "_checkpoint"
 
-    def __init__(self, job_config: spark_job.JobConfig):
+    def __init__(self, job_config):
         self.config = job_config
 
     def database_name(self):
@@ -259,7 +259,7 @@ class DbNamingConventionDomainBased(DbNamingConventionProtocol):
 class Db:
 
     def __init__(self, session,
-                 job_config: spark_job.JobConfig,
+                 job_config,
                  naming_convention: DbNamingConventionProtocol = DbNamingConventionCallerDefined):
         self.session = session
         self.config = job_config

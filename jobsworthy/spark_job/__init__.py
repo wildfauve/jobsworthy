@@ -7,5 +7,6 @@ from .config import (
 
 from .spark_job import (
     job,
-    register
+    register,
+    simple_streaming_job
 )

@@ -18,7 +18,7 @@ class MyHiveTable(repo.HiveRepo):
     def identity_merge_condition(self, name_of_baseline, update_name):
         return f"{name_of_baseline}.id = {update_name}.id"
 
-    def schema_as_dict(self):
+    def schema_(self):
         return {'fields': [
             {'metadata': {}, 'name': 'id', 'nullable': True, 'type': 'string'},
             {'metadata': {}, 'name': 'name', 'nullable': True, 'type': 'string'},
@@ -35,6 +35,8 @@ class MyHiveTable(repo.HiveRepo):
 
 
 class MyHiveTableCreatedAsManagedTable(repo.HiveRepo):
+    table_creation_protocol = repo.CreateManagedDeltaTableSQL
+
     table_name = "my_hive_table_created_as_managed_table"
 
     table_properties = [
@@ -48,13 +50,13 @@ class MyHiveTableCreatedAsManagedTable(repo.HiveRepo):
     ]
 
     def after_initialise(self):
-        self.create_as_unmanaged_delta_table()
+        self.perform_table_creation_protocol()
         pass
 
     def identity_merge_condition(self, name_of_baseline, update_name):
         return f"{name_of_baseline}.id = {update_name}.id"
 
-    def schema_as_dict(self):
+    def schema_(self):
         return {'type': 'struct',
                 'fields': [{'name': 'id', 'type': 'string', 'nullable': True, 'metadata': {}},
                            # {'name': 'isDeleted', 'type': 'string', 'nullable': True, 'metadata': {}},
@@ -100,6 +102,8 @@ class MyHiveTableWithoutPartitions(repo.HiveRepo):
 class MyHiveTable2(repo.HiveRepo):
     table_name = "my_hive_table_2"
 
+    table_creation_protocol = repo.CreateManagedDeltaTableSQL
+
     temp_table_name = "_temp_my_hive_table_2"
 
     partition_columns = ("name",)
@@ -109,6 +113,7 @@ class MyHiveTable2(repo.HiveRepo):
     schema = T.StructType(
         [
             T.StructField('id', T.StringType(), True),
+            T.StructField('isDeleted', T.StringType(), True),
             T.StructField('name', T.StringType(), True),
             T.StructField('pythons',
                           T.ArrayType(T.StructType([T.StructField('id', T.StringType(), True)]), True),
@@ -117,12 +122,76 @@ class MyHiveTable2(repo.HiveRepo):
             T.StructField('onStream', T.StringType(), False)
         ])
 
+    def after_initialise(self):
+        self.perform_table_creation_protocol()
+
+    def identity_merge_condition(self, name_of_baseline, update_name):
+        return f"{name_of_baseline}.id = {update_name}.id"
+
+
+class MyHiveTable2RequiringMergeSchema(repo.HiveRepo):
+    table_name = "my_hive_table_2"
+
+    table_creation_protocol = repo.CreateManagedDeltaTableSQL
+
+    temp_table_name = "_temp_my_hive_table_2"
+
+    partition_columns = ("name",)
+
+    pruning_column = 'name'
+
+    def schema_(self):
+        return T.StructType(
+            [
+                T.StructField('id', T.StringType(), True),
+                T.StructField('name', T.StringType(), True),
+                T.StructField('pythons',
+                              T.ArrayType(T.StructType([T.StructField('id', T.StringType(), True)]), True),
+                              True),
+                T.StructField('season', T.StringType(), True),
+                T.StructField('onStream', T.StringType(), False)
+            ])
+
+    def after_initialise(self):
+        self.perform_table_creation_protocol()
+
     def identity_merge_condition(self, name_of_baseline, update_name):
         return f"{name_of_baseline}.id = {update_name}.id"
 
 
 class MyHiveTable3(repo.HiveRepo):
     table_name = "my_hive_table_2"
+
+    table_creation_protocol = repo.CreateUnManagedDeltaTableSQL
+
+    partition_columns = ("name",)
+
+    pruning_column = 'name'
+
+    schema = T.StructType(
+        [
+            T.StructField('id', T.StringType(), True),
+            T.StructField('name', T.StringType(), True),
+            T.StructField('pythons',
+                          T.ArrayType(T.StructType([T.StructField('id', T.StringType(), False)]), False),
+                          False),
+            T.StructField('season', T.StringType(), True),
+            T.StructField('onStream', T.StringType(), False)
+        ])
+
+    def after_initialise(self):
+        self.perform_table_creation_protocol()
+
+    def identity_merge_condition(self, name_of_baseline, update_name):
+        return f"{name_of_baseline}.id = {update_name}.id"
+
+
+class MyBadlyConfiguredHiveTable(repo.HiveRepo):
+    pass
+
+
+class MyHiveTable4(repo.HiveRepo):
+    table_name = "my_hive_table_4"
 
     partition_columns = ("name",)
 
@@ -134,24 +203,68 @@ class MyHiveTable3(repo.HiveRepo):
             T.StructField('name', T.StringType(), True),
             T.StructField('pythons',
                           T.ArrayType(T.StructType([T.StructField('id', T.StringType(), True)]), True),
-                          True),
+                          False),
             T.StructField('season', T.StringType(), True),
             T.StructField('onStream', T.StringType(), False)
         ])
 
-    def after_initialise(self):
-        self.create_as_managed_delta_table()
 
-    def identity_merge_condition(self, name_of_baseline, update_name):
-        return f"{name_of_baseline}.id = {update_name}.id"
+class TableWithSchemaAsDict(repo.HiveRepo):
+    table_name = "t1"
+
+    def schema_(self):
+        return {'fields': [
+            {'metadata': {}, 'name': 'id', 'nullable': True, 'type': 'string'},
+            {'metadata': {}, 'name': 'name', 'nullable': True, 'type': 'string'}
+        ], 'type': 'struct'}
 
 
-class MyBadlyConfiguredHiveTable(repo.HiveRepo):
-    pass
+class TableWithSchemaInClsAttr(repo.HiveRepo):
+    table_name = "t1"
+
+    schema = T.StructType(
+        [
+            T.StructField('id', T.StringType(), True),
+            T.StructField('name', T.StringType(), True)
+        ])
+
+
+class TableWithSchemaInClsAttrAsDict(repo.HiveRepo):
+    table_name = "t1"
+
+    schema = {'fields': [
+        {'metadata': {}, 'name': 'id', 'nullable': True, 'type': 'string'},
+        {'metadata': {}, 'name': 'name', 'nullable': True, 'type': 'string'}
+    ], 'type': 'struct'}
+
+
+class TableWithSchemaInMethod(repo.HiveRepo):
+    table_name = "t1"
+
+    def schema_(self):
+        return T.StructType(
+            [
+                T.StructField('id', T.StringType(), True),
+                T.StructField('name', T.StringType(), True)
+            ])
+
+
+class TableWithSchemaInMethodAsDict(repo.HiveRepo):
+    table_name = "t1"
+
+    def schema_(self):
+        return {'fields': [
+            {'metadata': {}, 'name': 'id', 'nullable': True, 'type': 'string'},
+            {'metadata': {}, 'name': 'name', 'nullable': True, 'type': 'string'}
+        ], 'type': 'struct'}
 
 
 def my_table_df(db):
     return db.session.read.json("tests/fixtures/table1_rows.json", multiLine=True, prefersDecimal=True)
+
+
+def my_table_2_df(db):
+    return db.session.read.json("tests/fixtures/table2_rows.json", multiLine=True, prefersDecimal=True)
 
 
 def my_table_df_new_rows(db):

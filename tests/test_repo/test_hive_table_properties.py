@@ -50,8 +50,8 @@ def test_find_table_props_by_urn(test_db):
 
 
 def test_doesnt_add_table_props_when_none_defined(test_db):
-    my_table = tables.MyHiveTable2(db=test_db)
-    my_table.write_append(tables.my_table_df(test_db))
+    my_table = tables.MyHiveTable2(db=test_db, reader=repo.DeltaFileReader)
+    my_table.write_append(tables.my_table_2_df(test_db))
 
     props = my_table.property_manager.to_table_properties()
 

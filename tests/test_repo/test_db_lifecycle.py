@@ -1,5 +1,6 @@
 import pytest
 import json
+from pyspark.sql import types as T
 from jobsworthy import repo
 from jobsworthy.util import error
 
@@ -62,6 +63,39 @@ def test_create_managed_hive_table_in_db(test_db):
     assert my_table.table_exists()
 
 
+def test_create_managed_table_using_protocol(test_db):
+    my_table = tables.MyHiveTable(db=test_db, table_creation_protocol=repo.CreateManagedDeltaTableSQL)
+
+    assert not my_table.table_exists()
+
+    my_table.perform_table_creation_protocol()
+
+    assert my_table.table_exists()
+
+
+def test_create_unmanaged_table_using_protocol(test_db):
+    my_table = tables.MyHiveTable(db=test_db, table_creation_protocol=repo.CreateUnManagedDeltaTableSQL)
+
+    assert not my_table.table_exists()
+
+    my_table.perform_table_creation_protocol()
+
+    assert my_table.table_exists()
+
+
+# def test_create_managed_hive_table_using_dataframe_protocol(test_db):
+#     my_table = tables.MyHiveTable4(db=test_db,
+#                                    table_creation_protocol=repo.CreateManagedDeltaTableFromEmptyDataframe)
+#
+#     assert not my_table.table_exists()
+#
+#     my_table.perform_table_creation_protocol()
+#     breakpoint()
+#
+#     assert my_table.table_exists()
+#
+
+
 def test_on_init_callback_create_table(test_db):
     my_table = tables.MyHiveTableCreatedAsManagedTable(db=test_db)
 
@@ -88,9 +122,34 @@ def test_generates_column_specification_from_struct_based_schema(test_db):
 
     col_spec = my_table.column_specification_from_schema()
 
-    expected_col_spec = '( id string, name string, pythons array<struct<id:string>>, season string, onStream string NOT NULL )'
+    expected_col_spec = \
+        '( id string, name string, pythons array<struct<id:string>> NOT NULL, season string, onStream string NOT NULL )'
 
     assert col_spec == expected_col_spec
+
+
+def test_schema_locations(test_db):
+    table_with_schema_in_cls_attr = tables.TableWithSchemaInClsAttr(db=test_db)
+    table_with_schema_in_cls_attr_as_dict = tables.TableWithSchemaInClsAttrAsDict(db=test_db)
+    table_with_schema_in_method = tables.TableWithSchemaInMethod(db=test_db)
+    table_with_schema_in_method_as_dict = tables.TableWithSchemaInMethodAsDict(db=test_db)
+    table_with_schema_in_dict_method = tables.TableWithSchemaAsDict(db=test_db)
+
+    assert table_with_schema_in_cls_attr.has_specified_schema()
+    assert table_with_schema_in_cls_attr_as_dict
+    assert table_with_schema_in_method.has_specified_schema()
+    assert table_with_schema_in_dict_method.has_specified_schema()
+    assert table_with_schema_in_method_as_dict.has_specified_schema()
+
+    target_struct_schema = T.StructType(
+        [T.StructField('id', T.StringType(), True), T.StructField('name', T.StringType(), True)])
+
+    assert table_with_schema_in_cls_attr.schema_as_struct() == target_struct_schema
+    assert table_with_schema_in_cls_attr_as_dict.schema_as_struct() == target_struct_schema
+    assert table_with_schema_in_method.schema_as_struct() == target_struct_schema
+    assert table_with_schema_in_dict_method.schema_as_struct() == target_struct_schema
+    assert table_with_schema_in_method_as_dict.schema_as_struct() == target_struct_schema
+
 
 
 def test_generates_column_specification_from_json_based_schema(test_db):
@@ -113,4 +172,4 @@ def test_json_based_schema_on_create_df(test_db):
 
     df_schema = df.schema.jsonValue()
 
-    assert my_table.schema_as_dict() == df_schema
+    assert my_table.schema_() == df_schema

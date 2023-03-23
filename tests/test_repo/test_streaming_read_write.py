@@ -8,7 +8,7 @@ from tests.shared import tables
 
 
 def test_read_write_streams_append_only(test_db):
-    my_table = tables.MyHiveTable(db=test_db)
+    my_table = tables.MyHiveTable(db=test_db, stream_reader=repo.DeltaStreamReader)
     my_table.write_append(tables.my_table_df(test_db))
 
     my_table_2 = tables.MyHiveTable2(db=test_db,
@@ -28,8 +28,31 @@ def test_read_write_streams_append_only(test_db):
     assert "onStream" in table_2_df.columns
 
 
+def test_read_write_streams_append_only_with_merge_schema(test_db):
+    my_table = tables.MyHiveTable(db=test_db, stream_reader=repo.DeltaStreamReader)
+    my_table.write_append(tables.my_table_df(test_db))
+
+    my_table_2 = tables.MyHiveTable2RequiringMergeSchema(db=test_db,
+                                                         reader=repo.DeltaFileReader,
+                                                         stream_writer=repo.StreamFileWriter)
+
+    stream = my_table.read_stream()
+
+    df = stream.withColumn('onStream', F.lit("true"))
+
+    my_table_2.write_stream_append(df, options=[repo.SparkOption.MERGE_SCHEMA])
+
+    my_table_2.await_termination()
+
+    table_2_df = my_table_2.read()
+
+    assert 'isDeleted' in table_2_df.columns
+
+
 def test_write_stream_upserts(test_db):
-    my_table = tables.MyHiveTable(db=test_db)
+    my_table = tables.MyHiveTable(db=test_db,
+                                  reader=repo.DeltaFileReader,
+                                  stream_reader=repo.DeltaStreamReader)
     my_table.write_append(tables.my_table_df(test_db))
 
     my_table_2 = tables.MyHiveTable2(db=test_db,
@@ -79,7 +102,8 @@ def test_write_stream_upserts(test_db):
 
 
 def test_write_stream_upserts_with_awaiter(test_db):
-    my_table = tables.MyHiveTable(db=test_db)
+    my_table = tables.MyHiveTable(db=test_db,
+                                  stream_reader=repo.DeltaStreamReader)
     my_table.write_append(tables.my_table_df(test_db))
 
     my_table_2 = tables.MyHiveTable2(db=test_db,
@@ -99,7 +123,7 @@ def test_write_stream_upserts_with_awaiter(test_db):
 
 
 def test_cant_use_hive_stream_writer_in_test(test_db):
-    my_table = tables.MyHiveTable(db=test_db)
+    my_table = tables.MyHiveTable(db=test_db, stream_reader=repo.DeltaStreamReader)
     my_table.write_append(tables.my_table_df(test_db))
 
     my_table_2 = tables.MyHiveTable2(db=test_db,
@@ -115,7 +139,7 @@ def test_cant_use_hive_stream_writer_in_test(test_db):
 
 
 def test_read_write_stream_to_df(test_db):
-    my_table = tables.MyHiveTable(db=test_db)
+    my_table = tables.MyHiveTable(db=test_db, stream_reader=repo.DeltaStreamReader)
     my_table.write_append(tables.my_table_df(test_db))
 
     my_table_2 = tables.MyHiveTable2(db=test_db,

@@ -1,11 +1,14 @@
-from typing import Tuple
+from typing import Tuple, Callable, List, Set
 import types
 from importlib import import_module
 from pathlib import Path
 from pymonad.tools import curry
 from inspect import getmembers, ismodule
 
+from .command import simple_streamer
+from jobsworthy import model, repo
 from jobsworthy.util import singleton
+
 
 def job(initialiser_module: str = None):
     """
@@ -26,6 +29,7 @@ def job(initialiser_module: str = None):
     + At job completion it simply returns whatever the job function returned.
 
     """
+
     def inner(fn):
         def invoke(*args, **kwargs):
             mod = kwargs.get('initialiser_module', None) or initialiser_module
@@ -36,7 +40,33 @@ def job(initialiser_module: str = None):
             initialisation_runner()
             result = fn(*args, **kwargs)
             return result
+
         return invoke
+
+    return inner
+
+
+def simple_streaming_job(from_table,
+                         to_table,
+                         transformer: Callable,
+                         write_type: model.StreamWriteType,
+                         from_reader_options: Set[repo.ReaderSwitch] = None,
+                         options: List[repo.SparkOption] = None):
+    """
+    """
+    def inner(fn):
+        def invoke(*args, **kwargs):
+            result = simple_streamer.run(from_table=from_table,
+                                         to_table=to_table,
+                                         transformer=transformer,
+                                         write_type=write_type,
+                                         from_reader_options=from_reader_options,
+                                         options=options)
+
+            return fn(result=result)
+
+        return invoke
+
     return inner
 
 
@@ -49,6 +79,7 @@ class Initialiser(singleton.Singleton):
     def invoke_fns(self):
         [f() for f in self.init_fns]
 
+
 def register():
     """
     Decorator for registering initialisers to be run prior to the main job execution.  Note that the module containing
@@ -60,14 +91,15 @@ def register():
 
     All registered initialisers are invoked, in the order of registration, by the job decorator.
     """
+
     def inner(fn):
         Initialiser().add_initialiser(fn=fn)
+
     return inner
 
 
 def initialisation_runner():
     Initialiser().invoke_fns()
-
 
 # def initialisation_importer(initialiser_mod: types.ModuleType):
 #     list(map(import_initialiser, getmembers(initialiser_mod, ismodule)))
@@ -84,4 +116,3 @@ def initialisation_runner():
 #     # logger.info(msg=f"JobsWorth:import_initialiser, importing initialiser: {full_module}")
 #     # import_module(full_module)
 #     # pass
-

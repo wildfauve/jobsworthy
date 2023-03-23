@@ -1,8 +1,10 @@
 from tests.shared import tables
 
+from jobsworthy import repo
+
 
 def test_read_table(test_db):
-    my_table = tables.MyHiveTable(db=test_db)
+    my_table = tables.MyHiveTable(db=test_db, reader=repo.HiveTableReader)
     my_table.write_append(tables.my_table_df(test_db))
 
     df = my_table.read()

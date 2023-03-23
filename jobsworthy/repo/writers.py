@@ -34,45 +34,6 @@ class StreamHiveWriter:
         return stream.table(repo.db_table_name(table_name))
 
 
-class DeltaFileReader:
-    """
-    Reader which reads a delta table from a known table location (table path) using the Spark session.
-    """
-
-    def read(self, repo, table_name=None):
-        return (repo.db.session.read
-                .format('delta')
-                .load(repo.delta_table_location(table_name if table_name else repo.table_name)))
-
-
-class DeltaTableReader:
-    """
-    Delta reader using the DeltaTable class
-    """
-
-    def read(self, repo, table_name=None) -> Optional[dataframe.DataFrame]:
-        if not repo.table_exists():
-            return None
-        return self.table(repo, table_name).toDF()
-
-    #
-    def table(self, repo, table_name=None) -> DeltaTable:
-        return DeltaTable.forPath(repo.db.session,
-                                  repo.delta_table_location(table_name if table_name else repo.table_name))
-
-
-class HiveTableReader:
-    """
-    The default table Reader.  Reads data from a Hive database and table location.
-    """
-
-    def read(self, repo, table_name=None):
-        table_name = table_name if table_name else repo.table_name
-
-        if not repo.table_exists(table_name):
-            return None
-        return repo.db.session.table(repo.db_table_name(table_name))
-
 
 class DeltaStreamUpserter:
 

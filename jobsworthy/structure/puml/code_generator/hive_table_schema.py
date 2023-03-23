@@ -33,11 +33,11 @@ def _column_generator(definition: List, column: class_model.Column):
 
     vocab_ns_meta = column.meta_by_name("vocabNamespace")
 
-    vocab_ns = text.to_camel_case(vocab_ns_meta.value) if vocab_ns_meta else None
+    vocab_ns = text.vocab_to_camel(vocab_ns_meta.value) if vocab_ns_meta else None
 
     if column.is_struct():
         defn.append(f".struct('{_vocab_namespace(text.to_camel_case(column.name), vocab_ns)}', False)")
-        _extend_vocab(vocab, vocab_ns, column, text.to_camel_case)
+        _extend_vocab(vocab, vocab_ns, column, text.vocab_to_camel)
 
     if not column.properties:
         raise error.TableSchemaException(f"No properties defined in class {column.name}")

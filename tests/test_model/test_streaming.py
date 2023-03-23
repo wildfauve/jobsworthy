@@ -66,8 +66,20 @@ table_2_df = my_table_2.read()
 
 """
 
-
 def test_fluent_streaming_api(test_db, from_table, to_table):
+    streamer = (model.Streamer().stream_from(from_table)
+                .stream_to(to_table)
+                .with_transformer(transform_fn))
+
+    assert streamer.stream_id
+    assert streamer.stream_from_table == from_table
+    assert streamer.stream_to_table == to_table
+    assert streamer.transformer == transform_fn
+    assert streamer.transformer_context == {}
+
+
+
+def test_run_streamer(test_db, from_table, to_table):
     from_table.write_append(tables.my_table_df(test_db))
 
     streamer = (model.Streamer().stream_from(from_table)
@@ -124,7 +136,30 @@ def test_delta_merge_write_stream_with_merge_schema(test_db, from_table, alterna
     streamer = (model.Streamer().stream_from(from_table)
                 .stream_to(table=alternate_to_table,
                            write_type=model.StreamWriteType.UPSERT,
-                           options=[repo.Option.MERGE_SCHEMA])
+                           options=[repo.SparkOption.MERGE_SCHEMA])
+                .with_transformer(transform_fn))
+
+    result = streamer.run()
+
+    assert result.is_right()
+
+    df = alternate_to_table.read()
+
+    assert df.count() == 2
+    assert 'isDeleted' in df.columns
+
+
+def test_read_with_read_schema(test_db, from_table, alternate_to_table):
+    from_table.write_append(tables.my_table_df(test_db))
+
+    df = alternate_to_table.read()
+
+    streamer = (model.Streamer()
+                .stream_from(from_table,
+                             stream_from_reader_options={repo.ReaderSwitch.READ_STREAM_WITH_SCHEMA_ON})
+                .stream_to(table=alternate_to_table,
+                           write_type=model.StreamWriteType.UPSERT,
+                           options=[repo.SparkOption.MERGE_SCHEMA])
                 .with_transformer(transform_fn))
 
     result = streamer.run()
@@ -160,7 +195,7 @@ def test_multi_streamer_with_1_stream_with_options(test_db, from_table, alternat
 
     pairs = (model.StreamToPair().stream_to(table=alternate_to_table,
                                             write_type=model.StreamWriteType.APPEND,
-                                            options=[repo.Option.MERGE_SCHEMA])
+                                            options=[repo.SparkOption.MERGE_SCHEMA])
              .with_transformer(transform_fn))
 
     streamer = (model.MultiStreamer().stream_from(from_table)
@@ -183,7 +218,7 @@ def test_multi_streamer_with_2_streams(test_db, from_table, to_table, alternate_
                                      .with_transformer(transform_fn))
                 .with_stream_to_pair(model.StreamToPair().stream_to(table=alternate_to_table,
                                                                     write_type=model.StreamWriteType.APPEND,
-                                                                    options=[repo.Option.MERGE_SCHEMA])
+                                                                    options=[repo.SparkOption.MERGE_SCHEMA])
                                      .with_transformer(alternate_transform_fn))
                 )
 
@@ -207,7 +242,7 @@ def test_multi_streamer_with_2_streams_upsert_append(test_db, from_table, to_tab
                                      .with_transformer(transform_fn))
                 .with_stream_to_pair(model.StreamToPair().stream_to(table=alternate_to_table,
                                                                     write_type=model.StreamWriteType.APPEND,
-                                                                    options=[repo.Option.MERGE_SCHEMA])
+                                                                    options=[repo.SparkOption.MERGE_SCHEMA])
                                      .with_transformer(alternate_transform_fn))
                 )
 
@@ -230,7 +265,9 @@ def test_any_context_to_transformer(test_db, from_table, to_table):
     from_table.write_append(tables.my_table_df(test_db))
 
     streamer = (model.Streamer().stream_from(from_table)
-                .stream_to(to_table, ('name',))
+                .stream_to(to_table,
+                           partition_columns=('name',),
+                           options=[repo.SparkOption.MERGE_SCHEMA])
                 .with_transformer(transform_fn_with_ctx, run=TransformContext(run_id=1)))
 
     result = streamer.run()
@@ -248,7 +285,7 @@ def test_any_context_to_transformer(test_db, from_table, to_table):
 #
 @pytest.fixture
 def from_table(test_db):
-    return tables.MyHiveTable(db=test_db)
+    return tables.MyHiveTable(db=test_db, stream_reader=repo.DeltaStreamReader)
 
 
 @pytest.fixture

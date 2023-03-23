@@ -1,6 +1,22 @@
 # Repository Module
 
-The repo library offers a number of simple abstractions for managing Databrick/Spark databases and tables. It is by no
+<!-- TOC -->
+* [Repository Module](#repository-module)
+  * [SparkDB](#sparkdb)
+  * [Hive Table](#hive-table)
+    * [Basic Configuration](#basic-configuration)
+    * [Creating the Table](#creating-the-table)
+    * [Reading from a Table](#reading-from-a-table)
+    * [Table Lifecycle Events](#table-lifecycle-events)
+    * [Table Schema](#table-schema)
+    * [Partitioning and Pruning](#partitioning-and-pruning)
+    * [Table Properties](#table-properties)
+    * [Callbacks](#callbacks)
+    * [Write Functions](#write-functions)
+    * [Write Options](#write-options)
+<!-- TOC -->
+
+The repo library offers a number of class-based abstractions for managing Databricks/Spark databases and tables. It is by no
 means an object-mapper. Rather its a few classes with some simple functions we have found useful when working with Hive
 tables.
 
@@ -16,6 +32,8 @@ are constructed.  There is no need to specialise the `repo.Db` class.  Simply in
 `Db` takes a [spark session](#spark-session) and a [job config](#job-configuration).
 
 ```python
+from jobsworthy import repo
+
 db = repo.Db(session=spark_test_session.create_session(), config=job_config())
 ```
 
@@ -24,6 +42,8 @@ When initialised it checks that the database (defined in the config) exists and 
 The `repo.Db` class supports Hive DB properties.  To use these, specialise the `repo.Db` class, like so:
 
 ```python
+from jobsworthy import repo
+
 class MyDb(repo.Db):
     db_properties = [
         repo.DbProperty(repo.DataAgreementType.DATA_PRODUCT, "my_dp", "my_namespace"),
@@ -35,16 +55,35 @@ class MyDb(repo.Db):
 db = MyDb(session=spark_test_session.create_session(), config=job_config())
 ```
 
+There are 2 types of naming strategies provided to support locating the Hive table in storage, which are based on the `DbNamingConventionProtocol` protocol (which, of course, can be extended for you're own approach):
++ `repo.DbNamingConventionDomainBased`.  This is an opinionated db naming approach.  The DB and Table naming convention are based on the names of the domain and data product.  The location of a standard Delta table has the following convention:
+      `/domains/<job_config.domain_name>/data_products/<job_config.data_product_name>/<database_name>.db`
++ `repo.DbNamingConventionCallerDefined`.  This is generates names using the configuration provided in the `JobConfig` `DBConfig` section.  This is the default protocol.  It uses the following properties to define locations:
+  + `db_name`
+  + `db_file_system_path_root`
+  + `db_path_override_for_checkpoint`
+
+To specify a naming protocol, provide a clas on the Database constructor.
+
+```python
+db = repo.Db(session=spark_test_session.create_session(),
+             job_config=job_cfg(),
+             naming_convention=repo.DbNamingConventionDomainBased)
+
+```
+
 ## Hive Table
 
 The `HiveTable` class is an abstraction for a delta or hive table. Inheriting from this class provides a number of
-helper and table management. It also provides common reading and writing functions (both stream and batch).
+helper for table management, reading, writing, and streaming.
 
 ### Basic Configuration
 
-The most basic Hive table can look like this.
+The most basic Hive table is a table name.  There is no table schema, and no table lifecycle events (like creating the table if it doesn't exist) are executed.
 
 ```python
+from jobsworthy import repo
+
 class MyHiveTable(repo.HiveRepo):
     table_name = "my_hive_table"
 
@@ -53,13 +92,66 @@ class MyHiveTable(repo.HiveRepo):
 db = repo.Db(session=spark_test_session.create_session(), job_config=job_cfg())
 my_table = MyHiveTable(db=db)
 
-# Create a dataframe from the table
+# Create a dataframe from the table, which will be empty as the table is not initialised.
 df = MyHiveTable().read()  # => pyspark.sql.dataframe.DataFrame
 
 # Append to the Table
 df2 = db.session.read.json("tests/fixtures/table1_rows.json", multiLine=True, prefersDecimal=True)
 my_table.write_append(df2)
 ```
+
+### Creating the Table
+
+We use [lifecycle events](#table-lifecycle-events) to create the table, along with configuring the protocol to be used for table creation.  Currently 2 protocols are supported:
++ `repo.CreateManagedDeltaTableSQL`.  Creates a managed Delta Table.
++ `repo.CreateUnManagedDeltaTableSQL`.  Creates an unmanaged Delta Table.
+
+Table creation is not performed automatically.  The protocol needs to be specified, and the function `perform_table_creation_protocol()` needs to be called.  The following creates an unmanaged delta table.
+
+```python
+class MyHiveTable(repo.HiveRepo):
+    table_name = "my_hive_table"
+
+    table_creation_protocol = repo.CreateUnManagedDeltaTableSQL
+    
+    def after_initialise(self):
+        self.perform_table_creation_protocol()
+```
+
+### Reading from a Table
+
+Depending on the table type (CosmosDb, Hive, Delta), there are a number of techniques which can be used to read from it.  The table needs at least 1 reader injected.  Readers implement the `repo.ReaderProtocol` and any reader that supports this protocol can be injected.  The following readers are supported:
+
++ `DeltaFileReader`.  Performs delta reads using `spark.read.format('delta')`.  Requires that the table is a Delta table. 
++ `DeltaTableReader`. Performs delta reads using `DeltaTable.forPath`.  By default, the read returns a DF by calling `.toDF()` on the read object.  This behaviour can be suppressed by providing the following reader option `reader_options={ReaderSwitch.GENERATE_DF_OFF}` on the call to `read()`. Requires that the table is a Delta table.
++ `HiveTableReader`. The default reader if none is specified.  Performs a `spark.table()` read.
++ `DeltaStreamReader`.  Used when streaming from a delta table.  This is generally not provided on the `reader` initialiser, rather is provided to the initialiser as `stream_reader`.  Requires that the table is a Delta table.
++ `CosmosStreamReader`.  Only used on a repo type of `CosmosDb` to stream data from a CosmosDb table.  Requires that the table is a CosmosDB table.
+
+The Repo constructor takes 2 reader arguments. 
++ `reader`.  The reader class to be used for any call to the `read()` function.
++ `stream_reader`.  A separate reader class to be used when the `read_stream()` function is called.  The class must support reading a stream.
++ `delta_table_reader`.  This defaults to `DeltaTableReader` and is used specifically when performing a delta merge function (as the merge requires a Delta Table object to be available.  Requires that `reader_options={ReaderSwitch.GENERATE_DF_OFF}` be provided in this instance.  Checkout the HivRepo function `_perform_upsert`
+
+To provide a reader, do so on the repo initialiser, like so.
+
+```python
+my_table = MyHiveTable(db=test_db,
+                       reader=repo.DeltaFileReader)
+
+```
+
+To provide a separate streaming reader (when using the streaming protocols), use this pattern:
+
+```python
+my_table = MyHiveTable(db=test_db,
+                       reader=repo.DeltaFileReader,
+                       stream_writer=repo.DeltaStreamReader)
+```
+
+### Writers
+
+
 
 ### Table Lifecycle Events
 
@@ -86,6 +178,30 @@ my_table.create_as_managed_delta_table()
 ```
 
 ### Table Schema
+
+There are a number of ways to define a schema on a table:
+1. Using the `schema` class attribute
+2. Returning a schema from the `schema_()` method.
+3. Returning a dict schema from the `schema_as_dict()` method.  This approach is depreciated.
+
+Return either a dict version of the StructType instance or a StructType instance.  All approaches support both types.
+
+
+```python
+from pyspark.sql import types as T
+from jobsworthy import repo
+
+
+class MyHiveTable(repo.HiveRepo):
+    table_name = "my_hive_table"
+    #
+    # Use one of the approaches
+    #
+    schema = T.StructType([T.StructField('id', T.StringType(), True)])
+
+    def schema_(self):
+        return T.StructType([T.StructField('id', T.StringType(), True)])
+```
 
 ### Partitioning and Pruning
 

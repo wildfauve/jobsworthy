@@ -18,8 +18,9 @@ messages = {
     'hive_stream_writer_not_available': """hive_repo.StreamHiveWriter can not be used (probably because in Test), use 
     hive_repo.StreamFileWriter instead.""",
 
-    'no_schema_provided_on_create_df': """Called create_df without either providing a schema or implementing the 
-    schema or schema_as_dict.""",
+    'no_schema_provided_on_create_df': """There is no schema found on the repo.  Creating a DF using a schema will fail.
+    Provide a schema via the class attribute 'schema' or the method 'schema_()'.  Schemas may either be defined in
+    the dict or structtype form.""",
 
     'no_schema_defined': """Attempting to build the schema but no schema is provided.  Implement the data property
     schema or the instance method schema_as_dict""",
@@ -39,7 +40,23 @@ messages = {
     "using_partitioning_without_a_create_schema": """Attempted to create an unmanaged table with partitions, but
     no schema was provided. Implement repo.schema_as_dict().""",
 
-    "namespace_not_provided": """When configuring a property using DataAgreementType, a namespace must be provided"""
+    "namespace_not_provided": """When configuring a property using DataAgreementType, a namespace must be provided""",
+
+    "require_delta_table_reader_but_reader_is_not_for_delta_table": """Requested a delta table read, but the configured
+    reader is not a DeltaTableReader.""",
+
+    "delta_table_not_returned": """Tried to read Delta Table but nothing returned""",
+
+    "cosmos_additional_spark_options_as_dict_no_longer_supported": """The declaration of the CosmosDB 
+     class attribute additional_spark_options as a Dict but should bea collection of 
+     spark_util.SparkOption collection instead.""",
+
+    "cosmos_stream_read_requires_schema_but_none_provided": """Cosmos stream reader requires schema, but no schema 
+    defined on class.""",
+
+    "hive_table_can_not_be_created_no_protocol_provided": """Request for table creation can not be performed as no 
+    table creation protocol has defined.  Either initialise the table with a table_creation_protocol or initialise
+    the table class attribute table_creation_protocol"""
 }
 
 
@@ -83,6 +100,10 @@ def delta_location_configured_incorrectly():
     return error.RepoConfigError(messages[delta_location_configured_incorrectly.__name__])
 
 
+def require_delta_table_reader_but_reader_is_not_for_delta_table():
+    return error.RepoConfigError(messages[require_delta_table_reader_but_reader_is_not_for_delta_table.__name__])
+
+
 def db_path_not_configured():
     return error.RepoConfigError(messages[db_path_not_configured.__name__])
 
@@ -97,3 +118,19 @@ def using_partitioning_without_a_create_schema():
 
 def namespace_not_provided():
     return error.RepoConfigError(messages[namespace_not_provided.__name__])
+
+
+def cosmos_additional_spark_options_as_dict_no_longer_supported():
+    return error.RepoConfigError(messages[cosmos_additional_spark_options_as_dict_no_longer_supported.__name__])
+
+
+def hive_table_can_not_be_created_no_protocol_provided():
+    return error.RepoConfigError(messages[hive_table_can_not_be_created_no_protocol_provided.__name__])
+
+
+def delta_table_not_returned():
+    return error.RepoConfigError(messages[delta_table_not_returned.__name__])
+
+
+def cosmos_stream_read_requires_schema_but_none_provided():
+    return error.RepoConfigError(messages[cosmos_stream_read_requires_schema_but_none_provided.__name__])

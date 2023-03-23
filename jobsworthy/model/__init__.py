@@ -2,5 +2,9 @@ from .streamer import (
     Streamer,
     MultiStreamer,
     StreamWriteType,
-    StreamToPair
+    StreamToPair,
+)
+
+from .value import (
+    StreamState
 )

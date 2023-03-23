@@ -1,4 +1,10 @@
 import re
+
+
+def vocab_to_camel(vocab_string: str):
+    return ".".join([to_camel_case(s) for s in vocab_string.split(".")])
+
+
 def to_camel_case(string: str) -> str:
     s = re.sub(r"(_|-)+",
                " ",

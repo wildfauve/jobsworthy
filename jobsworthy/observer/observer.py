@@ -211,6 +211,14 @@ class Run(Job):
         return self
 
     def with_state_transition(self, transition_fn: Callable):
+        """
+        The Transition fn is provided by the caller, and is expected to return a tuple containing
+        (new_state, transition_event).  It takes a current state in the format which is understood by the transition
+        function.
+
+        The state returned must either be a string or a ENUM-like object that has a value attribute which returns a
+        string.
+        """
         new_current_state, event = transition_fn(self.current_state)
         self.state_transitions.append({'from': self.current_state, 'with': event, 'to': new_current_state})
         self.current_state = new_current_state
@@ -289,7 +297,7 @@ class Run(Job):
                 "traceId": self.coerce_uri(self.trace) if self.trace else None,
                 "startTime": self.start_time.to_iso8601_string() if self.start_time else None,
                 "endTime": self.end_time.to_iso8601_string() if self.end_time else None,
-                "state": self.current_state}
+                "state": self.current_state if isinstance(self.current_state, str) else self.current_state.value}
         )
         self.inputs_as_props(row)
         self.outputs_as_props(row)

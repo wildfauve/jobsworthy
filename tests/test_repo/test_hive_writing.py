@@ -9,7 +9,7 @@ from tests.shared import spark_test_session, tables, config_for_testing
 
 
 def test_delta_upsert_no_change(test_db):
-    my_table = tables.MyHiveTable(db=test_db)
+    my_table = tables.MyHiveTable(db=test_db, reader=repo.HiveTableReader)
     my_table.write_append(tables.my_table_df(test_db))
 
     df = my_table.read()
@@ -30,7 +30,7 @@ def test_delta_upsert_no_change(test_db):
 
 
 def test_partitioned_delta_upsert_with_new_rows(test_db):
-    my_table = tables.MyHiveTable(db=test_db)
+    my_table = tables.MyHiveTable(db=test_db, reader=repo.HiveTableReader)
 
     my_table.try_upsert(tables.my_table_df(test_db))
 
@@ -53,7 +53,7 @@ def test_partitioned_delta_upsert_with_new_rows(test_db):
 
 
 def test_upsert_updates_row(test_db):
-    my_table = tables.MyHiveTable(db=test_db)
+    my_table = tables.MyHiveTable(db=test_db, reader=repo.HiveTableReader)
 
     my_table.try_upsert(tables.my_table_df(test_db))
 
@@ -78,7 +78,7 @@ def test_upsert_updates_row(test_db):
 
 
 def test_try_upsert(test_db):
-    my_table = tables.MyHiveTable(db=test_db)
+    my_table = tables.MyHiveTable(db=test_db, reader=repo.HiveTableReader)
 
     my_table.try_upsert(tables.my_table_df(test_db))
 
@@ -89,7 +89,7 @@ def test_try_upsert(test_db):
 
 
 def test_non_partitioned_delta_upsert_with_new_rows(test_db):
-    my_table = tables.MyHiveTable(db=test_db)
+    my_table = tables.MyHiveTable(db=test_db, reader=repo.HiveTableReader)
 
     my_table.try_upsert(tables.my_table_df(test_db))
 
@@ -103,7 +103,7 @@ def test_non_partitioned_delta_upsert_with_new_rows(test_db):
 def test_errors_when_delta_upserting_in_test_without_checkpoint_override():
     db = repo.Db(session=spark_test_session.create_session(), job_config=job_config_without_checkpoint_override())
 
-    my_table = tables.MyHiveTable(db=db)
+    my_table = tables.MyHiveTable(db=db, reader=repo.HiveTableReader)
 
     my_table.try_upsert(tables.my_table_df(db))
 
@@ -114,7 +114,7 @@ def test_errors_when_delta_upserting_in_test_without_checkpoint_override():
 
 
 def test_delta_table_read_and_spark_load_of_delta(test_db):
-    my_table = tables.MyHiveTable(db=test_db)
+    my_table = tables.MyHiveTable(db=test_db, reader=repo.HiveTableReader)
 
     my_table.upsert(tables.my_table_df(test_db))
 
@@ -128,7 +128,7 @@ def test_delta_table_read_and_spark_load_of_delta(test_db):
 
 
 def test_delta_upsert_fails_when_no_identity_condition_provided(test_db):
-    my_table = tables.MyHiveTableWithoutIdentityCondition(db=test_db)
+    my_table = tables.MyHiveTableWithoutIdentityCondition(db=test_db, reader=repo.HiveTableReader)
 
     my_table.upsert(tables.my_table_df(test_db))
 
@@ -137,7 +137,7 @@ def test_delta_upsert_fails_when_no_identity_condition_provided(test_db):
 
 
 def test_partitions_using_repo_declared_partitions_on_upsert(test_db):
-    my_table = tables.MyHiveTable(db=test_db)
+    my_table = tables.MyHiveTable(db=test_db, reader=repo.HiveTableReader)
 
     my_table.upsert(tables.my_table_df(test_db))
 
@@ -147,7 +147,7 @@ def test_partitions_using_repo_declared_partitions_on_upsert(test_db):
 
 
 def test_partitions_using_repo_declared_partitions_on_append(test_db):
-    my_table = tables.MyHiveTable(db=test_db)
+    my_table = tables.MyHiveTable(db=test_db, reader=repo.HiveTableReader)
 
     my_table.write_append(tables.my_table_df(test_db))
 
@@ -157,7 +157,7 @@ def test_partitions_using_repo_declared_partitions_on_append(test_db):
 
 
 def test_delete_condition(test_db):
-    my_table = tables.MyHiveTableWithUpdataAndDeleteCondition(db=test_db)
+    my_table = tables.MyHiveTableWithUpdataAndDeleteCondition(db=test_db, reader=repo.HiveTableReader)
 
     my_table.try_upsert(tables.my_table_df(test_db))
 
@@ -171,12 +171,12 @@ def test_delete_condition(test_db):
 
 
 def test_options_on_append(test_db):
-    my_table = tables.MyHiveTableCreatedAsManagedTable(db=test_db)
+    my_table = tables.MyHiveTableCreatedAsManagedTable(db=test_db, reader=repo.HiveTableReader)
 
     with pytest.raises(AnalysisException):
         my_table.write_append(tables.my_table_df(test_db))
 
-    my_table.write_append(tables.my_table_df(test_db), [repo.Option.MERGE_SCHEMA])
+    my_table.write_append(tables.my_table_df(test_db), [repo.SparkOption.MERGE_SCHEMA])
 
     df = my_table.read()
 
@@ -184,9 +184,9 @@ def test_options_on_append(test_db):
 
 
 def test_merge_schema_on_upsert(test_db):
-    my_table = tables.MyHiveTableCreatedAsManagedTable(db=test_db)
-
-    my_table.upsert(tables.my_table_df(test_db), [repo.Option.MERGE_SCHEMA])
+    my_table = tables.MyHiveTableCreatedAsManagedTable(db=test_db,
+                                                       reader=repo.HiveTableReader)
+    my_table.upsert(tables.my_table_df(test_db), [repo.SparkOption.MERGE_SCHEMA])
 
     df = my_table.read()
 

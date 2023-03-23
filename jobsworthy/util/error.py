@@ -2,7 +2,7 @@ FAIL = 'fail'
 OK = 'ok'
 
 
-class JobError(Exception):
+class JobsWorthyError(Exception):
     """
     Base Error Class for Job errors
     """
@@ -21,29 +21,45 @@ class JobError(Exception):
         return {'error': self.message, 'code': self.code, 'step': self.name, 'ctx': self.ctx}
 
 
-class SchemaMatchingError(JobError):
+class SchemaMatchingError(JobsWorthyError):
     pass
 
 
-class NotAStreamError(JobError):
+class NotAStreamError(JobsWorthyError):
     pass
 
 
-class RepoConfigError(JobError):
+class RepoConfigError(JobsWorthyError):
     pass
 
 
-class RepoWriteError(JobError):
+class RepoWriteError(JobsWorthyError):
     pass
 
 
-class SecretError(JobError):
+class RepoStreamReadError(JobsWorthyError):
     pass
 
 
-class VocabNotFound(JobError):
+class StreamerTransformerError(JobsWorthyError):
     pass
 
 
-class ModellingException(JobError):
+class SecretError(JobsWorthyError):
+    pass
+
+
+class VocabNotFound(JobsWorthyError):
+    pass
+
+
+class ModellingException(JobsWorthyError):
+    pass
+
+
+class TableSchemaException(ModellingException):
+    pass
+
+
+class ModellingException(ModellingException):
     pass

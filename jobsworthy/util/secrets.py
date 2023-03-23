@@ -1,6 +1,5 @@
 from typing import Union, Callable, Optional, List
 from azure.identity import ClientSecretCredential
-from jobsworthy import spark_job
 from . import databricks, monad, error, logger, fn
 
 
@@ -18,7 +17,7 @@ class Secrets:
 
     def __init__(self,
                  session,
-                 config: spark_job.JobConfig,
+                 config,
                  secrets_provider: Union[
                      databricks.DatabricksUtilMockWrapper, databricks.DatabricksUtilsWrapper],
                  client_credentials_provider: Callable = ClientSecretCredential,
@@ -95,7 +94,7 @@ class ClientCredential:
     def __init__(self, provider):
         self.provider = provider
 
-    def grant(self, config: spark_job.JobConfig, get_secret_fn: Callable) -> monad.EitherMonad[ClientSecretCredential]:
+    def grant(self, config, get_secret_fn: Callable) -> monad.EitherMonad[ClientSecretCredential]:
         credentials = self.get_credentials(config, get_secret_fn)
         if any(map(monad.maybe_value_fail, credentials)):
             return monad.Left(None)
@@ -108,5 +107,5 @@ class ClientCredential:
     def get_credentials(self, config, get_secret_fn):
         return [get_secret_fn(material) for material in self.credential_material_names(config)]
 
-    def credential_material_names(self, config: spark_job.JobConfig) -> List[str]:
+    def credential_material_names(self, config) -> List[str]:
         return [config.client_id_key, config.client_secret_key, config.tenant_key]

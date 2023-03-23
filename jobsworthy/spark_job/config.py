@@ -71,12 +71,22 @@ class DbConfig:
 class CosmosDbConfig:
 
     def configure(self,
-                  account_key_name: str,
-                  endpoint: str,
                   db_name: str,
-                  container_name: str):
+                  container_name: str,
+                  account_key_name: str = None,
+                  endpoint: str = None,
+                  connection_string_key_name: str = None):
         self.account_key_name = account_key_name
         self.db_name = db_name
         self.container_name = container_name
         self.endpoint = endpoint
+        self.connection_string_key_name = connection_string_key_name
+        if not self._connection_configured():
+            raise error.RepoConfigError("""CosmosDB requires either db_name/container_name/account_key_name/endpoint, 
+            or db_name/container_name/connection_string_key_name""")
+
+    def _connection_configured(self):
+        return ((self.db_name and self.container_name and self.account_key_name and self.endpoint) or
+            (self.db_name and self.container_name and self.connection_string_key_name))
+
 

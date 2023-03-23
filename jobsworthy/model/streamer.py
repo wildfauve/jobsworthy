@@ -1,10 +1,10 @@
-from typing import Callable, Tuple, Dict, List, Optional
+from typing import Callable, Tuple, Dict, List, Optional, Set
 from enum import Enum
 from uuid import uuid4
 from pyspark.sql import dataframe
 
 from jobsworthy import repo
-from jobsworthy.util import monad
+from jobsworthy.util import monad, error
 from . import value, model_errors
 
 
@@ -26,7 +26,7 @@ class StreamToPair:
     def stream_to(self,
                   table: repo.HiveRepo,
                   write_type: StreamWriteType = StreamWriteType.APPEND,
-                  options: Optional[List[repo.Option]] = [],
+                  options: Optional[List[repo.SparkOption]] = [],
                   stream_trigger_condition: Optional[Dict] = None):
         self.stream_to_table = table
         self.stream_write_type = write_type
@@ -68,33 +68,36 @@ class StreamToPair:
 
 class MultiStreamer:
     def __init__(self,
-                 stream_from_table: repo.HiveRepo = None):
+                 stream_from_table: repo.HiveRepo = None,
+                 stream_from_reader_options: Set[repo.ReaderSwitch] = None):
         self.stream_id = str(uuid4())
         self.stream_from_table = stream_from_table
+        self.stream_from_reader_options = stream_from_reader_options
         self.runner = Runner()
         self.stream_pairs = []
         self.multi = True
 
-    def stream_from(self, table: repo.HiveRepo):
+    def stream_from(self, table: repo.HiveRepo, stream_from_reader_options: Set[repo.ReaderSwitch] = None):
         self.stream_from_table = table
+        self.stream_from_reader_options = stream_from_reader_options
         return self
 
     def with_stream_to_pair(self, stream_to_pair: StreamToPair):
         self.stream_pairs.append(stream_to_pair)
         return self
 
-    def run(self) -> monad.EitherMonad:
+    def run(self) -> monad.EitherMonad[value.StreamState]:
         result = self.runner.run(self)
         if result.is_left():
-            breakpoint()
             return monad.Left(result.error)
-        return monad.Right(self)
+        return result
 
 
 class Streamer:
 
     def __init__(self,
                  stream_from_table: repo.HiveRepo = None,
+                 stream_from_reader_options: Set[repo.ReaderSwitch] = None,
                  stream_from_to: repo.HiveRepo = None,
                  transformer: Callable = None,
                  transformer_context: Dict = None,
@@ -103,21 +106,25 @@ class Streamer:
         self.runner = Runner()
         self.stream_to_table = stream_from_to
         self.stream_from_table = stream_from_table
+        self.stream_from_reader_options = stream_from_reader_options
         self.transformer = transformer
         self.transformer_context = transformer_context if transformer_context else dict()
         self.stream_write_type = None
         self.stream_write_options = []
         self.multi = False
 
-    def stream_from(self, table: repo.HiveRepo):
+    def stream_from(self,
+                    table: repo.HiveRepo,
+                    stream_from_reader_options: Set[repo.ReaderSwitch] = None):
         self.stream_from_table = table
+        self.stream_from_reader_options = stream_from_reader_options
         return self
 
     def stream_to(self,
                   table: repo.HiveRepo,
                   partition_columns: Tuple[str] = tuple(),
                   write_type: StreamWriteType = StreamWriteType.APPEND,
-                  options: Optional[List[repo.Option]] = [],
+                  options: Optional[List[repo.SparkOption]] = [],
                   stream_trigger_condition: Optional[Dict] = None):
         self.stream_to_table = table
         self.partition_with = partition_columns
@@ -134,11 +141,25 @@ class Streamer:
         self.transformer_context = kwargs
         return self
 
-    def run(self) -> monad.EitherMonad:
+    def run(self) -> monad.EitherMonad[value.StreamState]:
         result = self.runner.run(self)
         if result.is_left():
             return monad.Left(result.error())
-        return monad.Right(self)
+        return result
+
+    def __repr__(self):
+        return f"""{self.__class__}
+        StreamId: {self.stream_id}
+        Stream From Table: {self.stream_from_table}
+        Stream To: 
+                |_ Table: {self.stream_to_table}
+                |_ Partition: {self.partition_with}
+                |_ WriteType: {self.stream_write_type}
+                |_ Options: {self.stream_write_options}
+        Transformer:
+                |_ Fn: {self.transformer}
+                |_ ctx: {self.transformer_context}
+        """
 
 
 class Runner:
@@ -154,11 +175,15 @@ class Runner:
         return monad.Right(value.StreamState(stream_configuration=stream))
 
     def stream_initiator(self, val: value.StreamState) -> monad.EitherMonad[value.StreamState]:
-        result = val.stream_configuration.stream_from_table.read_stream()
+        result = (val.stream_configuration
+                  .stream_from_table
+                  .try_read_stream(val.stream_configuration.stream_from_reader_options))
 
-        if not (isinstance(result, dataframe.DataFrame) and result.isStreaming):
+        if result.is_left():
+            return monad.Left(val.replace('error', result.error()))
+        if not (isinstance(result.value, dataframe.DataFrame) and result.value.isStreaming):
             return monad.Left(val.replace('error', model_errors.dataframe_not_streaming()))
-        return monad.Right(val.replace('streaming_input_dataframe', result))
+        return monad.Right(val.replace('streaming_input_dataframe', result.value))
 
     def transformer_strategy(self, val: value.StreamState) -> monad.EitherMonad[value.StreamState]:
         if val.stream_configuration.multi:
@@ -174,12 +199,19 @@ class Runner:
         return monad.Right(val)
 
     def apply_transformer(self, val: value.StreamState) -> monad.EitherMonad[value.StreamState]:
-        result = (val.stream_configuration.transformer(val.streaming_input_dataframe,
-                                                       **val.stream_configuration.transformer_context))
+        result = self.try_transformer(val)
 
-        if not (isinstance(result, dataframe.DataFrame) and result.isStreaming):
+        if result.error():
+            return monad.Left(val.replace('error', result.error()))
+        if not (isinstance(result.value, dataframe.DataFrame) and result.value.isStreaming):
             return monad.Left(val.replace('error', model_errors.dataframe_not_streaming()))
-        return monad.Right(val.replace('stream_transformed_dataframe', result))
+        return monad.Right(val.replace('stream_transformed_dataframe', result.value))
+
+    @monad.monadic_try(error_cls=error.StreamerTransformerError)
+    def try_transformer(self, val: value.StreamState) -> monad.EitherMonad:
+        return (val.stream_configuration.transformer(val.streaming_input_dataframe,
+                                              **val.stream_configuration.transformer_context))
+
 
     def start_stream_strategy(self, val: value.StreamState) -> monad.EitherMonad[value.StreamState]:
         if val.stream_configuration.multi:

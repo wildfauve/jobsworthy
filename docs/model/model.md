@@ -16,7 +16,7 @@ To setup a stream:
 ```python
 from jobsworthy import model
 
-streamer = (model.STREAMER()
+streamer = (model.Streamer()
             .stream_from(from_table)
             .stream_to(to_table)
             .with_transformer(transform_fn))
